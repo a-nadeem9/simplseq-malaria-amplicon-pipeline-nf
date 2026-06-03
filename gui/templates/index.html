@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SIMPLseq-nf App</title>
+    <link rel="icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ asset_version }}">
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <div class="wordmark" aria-label="SIMPLseq-nf">
+          <span class="wordmark-simpl">SIMPL</span><span class="wordmark-seq">seq</span><span class="wordmark-nf">-nf</span>
+        </div>
+      </div>
+      <nav class="tabs" aria-label="Main sections">
+        <button class="tab is-active" data-tab="inputs">Inputs</button>
+        <button class="tab" data-tab="run">Run</button>
+        <button class="tab" data-tab="results">Results</button>
+        <button class="tab" data-tab="dinemites">DINEMITES</button>
+        <button class="tab" data-tab="dcifer">dcifer</button>
+      </nav>
+      <div class="pipeline-status" aria-live="polite">
+        <span id="pipeline-label">Idle</span>
+        <strong id="pipeline-percent">0%</strong>
+      </div>
+    </header>
+    <div class="global-progress" aria-hidden="true">
+      <span id="global-progress-fill"></span>
+    </div>
+
+    <main class="app-shell">
+      <section id="tab-inputs" class="tab-panel is-active">
+        <div class="two-column">
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Inputs</p>
+                <h2>FASTQ folder</h2>
+              </div>
+            </div>
+
+            <label for="fastq-dir">FASTQ folder</label>
+            <div class="input-row">
+              <input id="fastq-dir" type="text" value="data" autocomplete="off">
+              <button id="browse-button" title="Choose a FASTQ folder">Choose folder</button>
+            </div>
+            <p id="folder-message" class="field-help">Select the folder containing paired FASTQ files. Files are read from disk, not uploaded.</p>
+
+            <div id="common-paths" class="quick-paths" aria-label="Common paths" hidden></div>
+
+            <label for="samples-out">Sample sheet path</label>
+            <input id="samples-out" type="text" value="samples.csv" autocomplete="off">
+
+            <div class="card-action-row">
+              <button id="scan-button" class="primary">Scan folder</button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Scan</p>
+                <h2>Detected pairs</h2>
+              </div>
+              <span id="scan-status" class="status-pill">No scan yet</span>
+            </div>
+
+            <div class="metrics">
+              <div><span>FASTQ pairs</span><strong id="metric-pairs">0</strong></div>
+              <div><span>Data size</span><strong id="metric-size">0 B</strong></div>
+              <div><span>MD5 files</span><strong id="metric-md5">0</strong></div>
+              <div><span>Missing pairs</span><strong id="metric-missing">0</strong></div>
+            </div>
+
+            <div id="scan-warnings" class="notice-list"></div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Sample</th>
+                    <th>Participant</th>
+                    <th>Date</th>
+                    <th>Replicate</th>
+                  </tr>
+                </thead>
+                <tbody id="scan-preview">
+                  <tr><td colspan="4" class="empty">No scan yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Sample sheet</p>
+              <h2 id="sample-sheet-title">samples.csv</h2>
+            </div>
+            <span id="sample-sheet-status" class="status-pill">Not written</span>
+          </div>
+          <div class="table-wrap compact">
+            <table>
+              <thead>
+                <tr>
+                  <th>sample_id</th>
+                  <th>fastq_1</th>
+                  <th>fastq_2</th>
+                  <th>participant_id</th>
+                  <th>collection_date</th>
+                </tr>
+              </thead>
+              <tbody id="sample-preview">
+                <tr><td colspan="5" class="empty">Write a sample sheet to preview rows.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="tab-run" class="tab-panel">
+        <div class="two-column run-layout">
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Run</p>
+                <h2>Launch workflow</h2>
+              </div>
+              <span id="run-state-pill" class="status-pill">Pending</span>
+            </div>
+
+            <label for="run-samples">Sample sheet</label>
+            <input id="run-samples" type="text" value="samples.csv" autocomplete="off">
+
+            <label for="outdir">Output parent folder</label>
+            <div class="input-row">
+              <input id="outdir" type="text" value="results" autocomplete="off">
+              <button id="choose-outdir-button" title="Choose an output parent folder">Choose folder</button>
+            </div>
+            <p class="field-help">Each run writes to a new folder inside this location.</p>
+
+            <label for="run-name">Run name</label>
+            <input id="run-name" type="text" placeholder="Auto-generated if empty" autocomplete="off">
+
+            <div class="option-grid">
+              <label class="check-row">
+                <input id="resume-run" type="checkbox">
+                <span>Resume previous Nextflow work</span>
+              </label>
+              <label class="check-row">
+                <input id="dry-run" type="checkbox">
+                <span>Preview technical command only</span>
+              </label>
+            </div>
+
+            <details>
+              <summary>Advanced runtime options</summary>
+              <div class="advanced-grid">
+                <label for="cpus">CPUs</label>
+                <input id="cpus" type="number" min="0" step="1" value="4">
+                <label for="memory">Memory</label>
+                <input id="memory" type="text" value="12 GB">
+              </div>
+            </details>
+
+            <div class="button-row">
+              <button id="check-button">Run runtime check</button>
+              <button id="run-button" class="primary">Start run</button>
+              <button id="stop-button" class="danger" type="button" hidden>Stop run</button>
+            </div>
+            <span id="check-status" class="status-pill compact-pill">Not checked</span>
+
+            <div id="run-message" class="inline-message"></div>
+
+            <details class="runtime-details">
+              <summary>Runtime check details</summary>
+              <div class="table-wrap compact">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Check</th>
+                      <th>Status</th>
+                      <th>Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody id="check-table">
+                    <tr><td colspan="3" class="empty">Runtime checks run on demand.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Progress</p>
+                <h2 id="current-stage">No active run</h2>
+              </div>
+              <button id="refresh-status">Refresh</button>
+            </div>
+
+            <div class="progress-meta">
+              <span>Pipeline progress</span>
+              <strong id="progress-percent">0%</strong>
+            </div>
+            <div class="progress-bar" aria-label="Run progress">
+              <span id="progress-fill"></span>
+            </div>
+            <ol id="stage-list" class="stage-list"></ol>
+          </section>
+        </div>
+
+        <section class="panel terminal-panel">
+          <div class="terminal-heading">
+            <div>
+              <p class="eyebrow">Live terminal</p>
+              <h3>Run output</h3>
+            </div>
+            <button id="load-log">Refresh log</button>
+          </div>
+          <pre id="technical-log">&gt; Waiting for run.
+&gt; Live progress appears here while SIMPLseq is active.</pre>
+        </section>
+      </section>
+
+      <section id="tab-results" class="tab-panel">
+        <section class="panel results-panel">
+          <div class="results-toolbar">
+            <div class="results-title">
+              <p class="eyebrow">Results</p>
+              <h2>Output files</h2>
+              <p class="results-copy">Primary SIMPLseq output files from the selected results folder.</p>
+            </div>
+            <div class="results-folder-control">
+              <label for="results-outdir">Results folder</label>
+              <input id="results-outdir" type="text" value="results" autocomplete="off">
+              <button id="refresh-results" class="primary">Refresh results</button>
+              <button id="download-bundle" type="button" disabled>Download output bundle</button>
+            </div>
+          </div>
+          <div id="results-list" class="results-list"></div>
+        </section>
+      </section>
+
+      <section id="tab-dinemites" class="tab-panel">
+        <div class="two-column">
+          <section id="dinemites-card" class="panel dinemites-card">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">DINEMITES</p>
+                <h2>Run analysis</h2>
+              </div>
+              <span id="dinemites-status" class="status-pill">Disabled</span>
+            </div>
+
+            <div class="dinemites-config">
+              <p class="results-copy">Run DINEMITES on an existing SIMPLseq results folder. The module uses the CIGAR table plus the same sample sheet dates.</p>
+
+              <label class="check-row dinemites-toggle">
+                <input id="dinemites-enable" type="checkbox">
+                <span>Enable DINEMITES analysis</span>
+              </label>
+
+              <div id="dinemites-controls" class="dinemites-controls" hidden>
+                <div class="param-label">
+                  <label for="dinemites-model">Model type</label>
+                  <button type="button" class="param-help" aria-label="About DINEMITES model type" data-tooltip="Choose how DINEMITES estimates persistent vs new infection events. Simple is fastest; clustering and Bayesian use the Stan runtime.">?</button>
+                </div>
+                <select id="dinemites-model" class="dinemites-select">
+                  <option value="simple" selected>Simple</option>
+                  <option value="clustering">Clustering</option>
+                  <option value="bayesian">Bayesian</option>
+                </select>
+
+                <details class="dinemites-advanced">
+                  <summary>Advanced settings</summary>
+                  <div class="dinemites-settings-grid">
+                    <div class="param-label">
+                      <label for="dinemites-min-abundance-pct">Minimum allele abundance (%)</label>
+                      <button type="button" class="param-help" aria-label="About DINEMITES minimum allele abundance" data-tooltip="Drops alleles below this percentage before replicate intersection. Default 0.3% removes low-level noise while keeping common within-sample alleles.">?</button>
+                    </div>
+                    <input id="dinemites-min-abundance-pct" type="number" min="0" max="100" step="0.01" value="0.3">
+                    <div class="param-label">
+                      <label for="dinemites-abundance-denominator">Filter basis</label>
+                      <button type="button" class="param-help" aria-label="About DINEMITES filter basis" data-tooltip="Per locus compares an allele to reads from the same locus in that sample. Whole sample compares to all reads in that sample. Per locus is usually safer when locus depths differ.">?</button>
+                    </div>
+                    <select id="dinemites-abundance-denominator" class="dinemites-select">
+                      <option value="locus" selected>Per locus</option>
+                      <option value="sample">Whole sample</option>
+                    </select>
+                    <div class="param-label">
+                      <label for="dinemites-seed">Random seed</label>
+                      <button type="button" class="param-help" aria-label="About DINEMITES random seed" data-tooltip="Controls reproducibility for stochastic clustering/Bayesian runs. Changing it can slightly change stochastic model output.">?</button>
+                    </div>
+                    <input id="dinemites-seed" type="number" min="1" step="1" value="1">
+                    <div class="param-label">
+                      <label for="dinemites-refresh-interval">Progress refresh</label>
+                      <button type="button" class="param-help" aria-label="About DINEMITES progress refresh" data-tooltip="How often the DINEMITES R script reports progress while running. It does not change the model result.">?</button>
+                    </div>
+                    <input id="dinemites-refresh-interval" type="number" min="0" step="1" value="100">
+                  </div>
+
+                  <div id="dinemites-simple-settings" class="dinemites-settings-section" data-model-panel="simple">
+                    <div class="dinemites-settings-grid">
+                      <div class="param-label">
+                        <label for="dinemites-n-lags">Recent visits</label>
+                        <button type="button" class="param-help" aria-label="About DINEMITES recent visits" data-tooltip="Simple model: how many previous visits can make an observed allele count as persistent rather than new.">?</button>
+                      </div>
+                      <input id="dinemites-n-lags" type="number" min="1" step="1" value="3">
+                      <div class="param-label">
+                        <label for="dinemites-t-lag">Recent days</label>
+                        <button type="button" class="param-help" aria-label="About DINEMITES recent days" data-tooltip="Simple model: maximum calendar-day gap for previous observations to count as recent. Disabled when No day cutoff is selected.">?</button>
+                      </div>
+                      <input id="dinemites-t-lag" type="number" min="0" step="1" value="90" disabled>
+                    </div>
+                    <div class="check-row dinemites-no-cutoff">
+                      <input id="dinemites-no-day-cutoff" type="checkbox" checked>
+                      <label for="dinemites-no-day-cutoff">No day cutoff</label>
+                      <button type="button" class="param-help" aria-label="About DINEMITES no day cutoff" data-tooltip="Sets t_lag to infinity for the Simple model, so long gaps between visits do not by themselves make old alleles look new again.">?</button>
+                    </div>
+                  </div>
+
+                  <div id="dinemites-bayesian-settings" class="dinemites-settings-section" data-model-panel="bayesian" hidden>
+                    <div class="dinemites-settings-grid">
+                      <div class="param-label">
+                        <label for="dinemites-bayesian-lag-days">Covariate lag days</label>
+                        <button type="button" class="param-help" aria-label="About DINEMITES Bayesian lag days" data-tooltip="Bayesian model: lookback window used when generating internal lag and persistence covariates.">?</button>
+                      </div>
+                      <input id="dinemites-bayesian-lag-days" type="number" min="1" step="1" value="30">
+                      <div class="param-label">
+                        <label for="dinemites-bayesian-chains">Chains</label>
+                        <button type="button" class="param-help" aria-label="About DINEMITES Bayesian chains" data-tooltip="Number of Stan chains. More chains improve diagnostics but take longer.">?</button>
+                      </div>
+                      <input id="dinemites-bayesian-chains" type="number" min="1" step="1" value="1">
+                      <div class="param-label">
+                        <label for="dinemites-bayesian-parallel-chains">Parallel chains</label>
+                        <button type="button" class="param-help" aria-label="About DINEMITES Bayesian parallel chains" data-tooltip="How many Stan chains can run at the same time. Keep this at or below available CPU capacity.">?</button>
+                      </div>
+                      <input id="dinemites-bayesian-parallel-chains" type="number" min="1" step="1" value="1">
+                      <div class="param-label">
+                        <label for="dinemites-bayesian-warmup">Warmup iterations</label>
+                        <button type="button" class="param-help" aria-label="About DINEMITES Bayesian warmup iterations" data-tooltip="Stan adaptation iterations before samples are retained. Higher values can improve fitting but increase runtime.">?</button>
+                      </div>
+                      <input id="dinemites-bayesian-warmup" type="number" min="1" step="1" value="500">
+                      <div class="param-label">
+                        <label for="dinemites-bayesian-sampling">Sampling iterations</label>
+                        <button type="button" class="param-help" aria-label="About DINEMITES Bayesian sampling iterations" data-tooltip="Retained posterior draws per chain. Higher values reduce Monte Carlo noise but increase runtime.">?</button>
+                      </div>
+                      <input id="dinemites-bayesian-sampling" type="number" min="1" step="1" value="500">
+                      <div class="param-label">
+                        <label for="dinemites-bayesian-adapt-delta">Adapt delta</label>
+                        <button type="button" class="param-help" aria-label="About DINEMITES Bayesian adapt delta" data-tooltip="Stan NUTS target acceptance rate. Higher values can reduce divergent transitions but make sampling slower.">?</button>
+                      </div>
+                      <input id="dinemites-bayesian-adapt-delta" type="number" min="0.01" max="0.999" step="0.001" value="0.99">
+                    </div>
+                    <div class="check-row dinemites-dropout">
+                      <input id="dinemites-bayesian-drop-out" type="checkbox">
+                      <label for="dinemites-bayesian-drop-out">Drop-out model</label>
+                      <button type="button" class="param-help" aria-label="About DINEMITES drop-out model" data-tooltip="Optional Bayesian component that allows observed absence to reflect allele drop-out rather than definite biological absence.">?</button>
+                    </div>
+                  </div>
+                </details>
+
+                <div class="button-row dinemites-action-row">
+                  <button id="dinemites-run" class="primary" disabled>Run DINEMITES</button>
+                  <button id="dinemites-refresh" type="button">Refresh results</button>
+                </div>
+                <div id="dinemites-message" class="inline-message"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel dinemites-guide" id="dinemites-model-guide">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Models</p>
+                <h2>Model guide</h2>
+              </div>
+            </div>
+            <div class="dinemites-model-list">
+              <div>
+                <strong>Simple</strong>
+                <span>Binary rule-based calls. Fastest; uses recent visits and optionally recent days.</span>
+              </div>
+              <div>
+                <strong>Clustering</strong>
+                <span>Co-occurrence clustering. Continuous probabilities for complex multi-clone infections; uses the Stan runtime.</span>
+              </div>
+              <div>
+                <strong>Bayesian</strong>
+                <span>Bayesian persistence model. Continuous probabilities using generated persistence and lag covariates; uses the Stan runtime.</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section id="dinemites-results" class="panel dinemites-results-panel" hidden>
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">DINEMITES</p>
+              <h2>Analysis results</h2>
+            </div>
+            <span id="dinemites-results-status" class="status-pill">Pending</span>
+          </div>
+
+          <div id="dinemites-summary" class="metrics dinemites-metrics">
+            <div><span>New infections</span><strong id="dm-new-infections">--</strong></div>
+            <div><span>molFOI</span><strong id="dm-molfoi">--</strong></div>
+            <div><span>Subjects</span><strong id="dm-subjects">--</strong></div>
+            <div><span>Model</span><strong id="dm-model">--</strong></div>
+          </div>
+
+          <div class="plot-browser-row">
+            <span id="dm-plot-count">Plots will appear here after results load.</span>
+            <div class="plot-browser-controls">
+              <button id="dm-prev-plot" class="plot-browser-nav" type="button" aria-label="Previous DINEMITES plot" title="Previous DINEMITES plot" disabled>&lt;</button>
+              <select id="dm-plot-selector" aria-label="DINEMITES subject plot" disabled>
+                <option>No plots</option>
+              </select>
+              <button id="dm-next-plot" class="plot-browser-nav" type="button" aria-label="Next DINEMITES plot" title="Next DINEMITES plot" disabled>&gt;</button>
+            </div>
+          </div>
+          <div id="dinemites-plot-gallery" class="dinemites-plot-gallery" hidden></div>
+
+          <div class="dinemites-section-heading">
+            <h3>Per-subject results</h3>
+          </div>
+          <div class="table-wrap compact">
+            <table>
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>New infections</th>
+                  <th>molFOI</th>
+                  <th>Time points</th>
+                </tr>
+              </thead>
+              <tbody id="dinemites-table">
+                <tr><td colspan="4" class="empty">Run DINEMITES to see per-subject results.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="dinemites-section-heading">
+            <h3>Allele key</h3>
+          </div>
+          <div id="dinemites-allele-key-table" class="table-wrap compact dinemites-allele-key-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Short ID</th>
+                  <th>Locus</th>
+                  <th>Exact allele</th>
+                </tr>
+              </thead>
+              <tbody id="dinemites-allele-key">
+                <tr><td colspan="3" class="empty">Run DINEMITES to see allele IDs.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="button-row dinemites-downloads">
+            <button id="dm-dl-probabilities" disabled>Download allele probabilities</button>
+            <button id="dm-dl-allele-key" disabled>Download allele key</button>
+            <button id="dm-dl-molfoi" disabled>Download molFOI</button>
+            <button id="dm-dl-new-infections" disabled>Download new infections</button>
+          </div>
+        </section>
+
+      </section>
+
+      <section id="tab-dcifer" class="tab-panel">
+        <div class="two-column">
+          <section id="dcifer-card" class="panel dcifer-card">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">dcifer</p>
+                <h2>Relatedness analysis</h2>
+              </div>
+              <span id="dcifer-status" class="status-pill">Disabled</span>
+            </div>
+
+            <div class="dcifer-config">
+              <p class="results-copy">Run dcifer on an existing SIMPLseq results folder. dcifer estimates pairwise genetic relatedness between infections; it does not call new infections.</p>
+
+              <label class="check-row dcifer-toggle">
+                <input id="dcifer-enable" type="checkbox">
+                <span>Enable dcifer analysis</span>
+              </label>
+
+              <div id="dcifer-controls" class="dcifer-controls" hidden>
+                <div class="dcifer-settings-grid">
+                  <div class="param-label">
+                    <label for="dcifer-min-abundance-pct">Minimum allele abundance (%)</label>
+                    <button type="button" class="param-help" aria-label="About dcifer minimum allele abundance" data-tooltip="Drops alleles below this percentage before dcifer input construction and replicate intersection. Default 0.3% removes low-level noise.">?</button>
+                  </div>
+                  <input id="dcifer-min-abundance-pct" type="number" min="0" max="100" step="0.01" value="0.3">
+                  <div class="param-label">
+                    <label for="dcifer-abundance-denominator">Filter basis</label>
+                    <button type="button" class="param-help" aria-label="About dcifer filter basis" data-tooltip="Per locus compares an allele to reads from the same locus. Whole sample compares to all sample reads. Per locus is usually safer when locus depths differ.">?</button>
+                  </div>
+                  <select id="dcifer-abundance-denominator" class="dcifer-select">
+                    <option value="locus" selected>Per locus</option>
+                    <option value="sample">Whole sample</option>
+                  </select>
+                </div>
+
+                <details class="dcifer-advanced">
+                  <summary>Advanced settings</summary>
+                  <div class="dcifer-settings-grid">
+                    <div class="param-label">
+                      <label for="dcifer-coi-lrank">COI locus rank</label>
+                      <button type="button" class="param-help" aria-label="About dcifer COI locus rank" data-tooltip="Which ranked locus is used for the COI estimate. Higher rank can reduce sensitivity to one unusually diverse locus.">?</button>
+                    </div>
+                    <input id="dcifer-coi-lrank" type="number" min="1" step="1" value="2">
+                    <div class="param-label">
+                      <label for="dcifer-ibd-grid-nr">IBD grid points</label>
+                      <button type="button" class="param-help" aria-label="About dcifer IBD grid points" data-tooltip="Resolution of the relatedness grid search. More grid points can be more precise but slower.">?</button>
+                    </div>
+                    <input id="dcifer-ibd-grid-nr" type="number" min="1" step="100" value="1000">
+                    <div class="param-label">
+                      <label for="dcifer-alpha">Alpha</label>
+                      <button type="button" class="param-help" aria-label="About dcifer alpha" data-tooltip="Threshold used to count exploratory raw p-values as <= alpha in the summary. It does not make p-values confirmatory.">?</button>
+                    </div>
+                    <input id="dcifer-alpha" type="number" min="0.001" max="0.999" step="0.001" value="0.05">
+                  </div>
+                </details>
+
+                <div class="button-row dcifer-action-row">
+                  <button id="dcifer-run" class="primary" disabled>Run dcifer</button>
+                  <button id="dcifer-refresh" type="button">Refresh results</button>
+                </div>
+                <div id="dcifer-message" class="inline-message"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel dcifer-guide">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Interpretation</p>
+                <h2>What dcifer returns</h2>
+              </div>
+            </div>
+            <div class="dcifer-model-list">
+              <div>
+                <strong>COI</strong>
+                <span>Complexity of infection per patient/date sample, estimated from retained multi-locus alleles.</span>
+              </div>
+              <div>
+                <strong>Relatedness</strong>
+                <span>Pairwise IBD-style estimates across patient/date samples using allele frequencies estimated from the current run.</span>
+              </div>
+              <div>
+                <strong>Raw p-values</strong>
+                <span>Raw p-values are exploratory unless allele frequencies come from an adequate background population.</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section id="dcifer-results" class="panel dcifer-results-panel" hidden>
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">dcifer</p>
+              <h2>Analysis results</h2>
+            </div>
+            <span id="dcifer-results-status" class="status-pill">Pending</span>
+          </div>
+
+          <div class="metrics dcifer-metrics">
+            <div><span>Samples</span><strong id="dcifer-samples">--</strong></div>
+            <div><span>Pairs</span><strong id="dcifer-pairs">--</strong></div>
+            <div><span>Max relatedness</span><strong id="dcifer-max-relatedness">--</strong></div>
+            <div><span>Raw p <= alpha</span><strong id="dcifer-raw-p-le-alpha">--</strong></div>
+          </div>
+
+          <div class="plot-jump-row">
+            <span id="dcifer-plot-count">Heatmaps will appear here after results load.</span>
+            <button id="dcifer-view-plots" type="button" disabled>View heatmaps</button>
+          </div>
+          <div id="dcifer-plot-gallery" class="dcifer-plot-gallery" hidden></div>
+
+          <div class="dcifer-section-heading">
+            <h3>Pairwise relatedness</h3>
+          </div>
+          <div class="table-wrap compact">
+            <table>
+              <thead>
+                <tr>
+                  <th>Sample A</th>
+                  <th>Sample B</th>
+                  <th>Relatedness</th>
+                  <th>p-value</th>
+                  <th>Type</th>
+                </tr>
+              </thead>
+              <tbody id="dcifer-pairs-table">
+                <tr><td colspan="5" class="empty">Run dcifer to see pairwise relatedness.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="button-row dcifer-downloads">
+            <button id="dcifer-dl-pairs" disabled>Download pairs</button>
+            <button id="dcifer-dl-coi" disabled>Download COI</button>
+            <button id="dcifer-dl-input" disabled>Download input</button>
+            <button id="dcifer-dl-matrix" disabled>Download matrix</button>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="folder-modal" class="folder-modal" aria-hidden="true">
+      <div class="folder-modal__scrim"></div>
+      <div class="folder-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="folder-modal-title">
+        <div class="folder-modal__header">
+          <h2 id="folder-modal-title">Choose folder</h2>
+          <button type="button" class="folder-modal__close" aria-label="Close folder picker">Close</button>
+        </div>
+        <div class="folder-modal__body">
+          <label for="browse-path">Current folder</label>
+          <div class="input-row">
+            <input id="browse-path" type="text" autocomplete="off">
+            <button id="browse-parent">Parent</button>
+          </div>
+          <div id="browse-list" class="browse-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}?v={{ asset_version }}"></script>
+  </body>
+</html>
