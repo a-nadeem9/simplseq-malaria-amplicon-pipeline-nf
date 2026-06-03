@@ -2,11 +2,9 @@
   <img src="assets/simplseq-readme-banner.png" alt="SIMPLseq-nf malaria amplicon pipeline" width="620">
 </div>
 
-# SIMPLseq-nf App
+# SIMPLseq Malaria Amplicon Pipeline with Integrated Genomic Transmission Analysis
 
-SIMPLseq-nf App is a local browser app for SIMPLseq malaria amplicon sequencing runs. It scans paired FASTQ files, runs the SIMPLseq Nextflow workflow, and shows SIMPLseq, DINEMITES, and dcifer results in your browser.
-
-Your data stays on your computer.
+SIMPLseq-nf is a local browser application for processing SIMPLseq-panel malaria amplicon sequencing data and integrates downstream DINEMITES and dcifer analyses for longitudinal new-infection and pairwise relatedness interpretation. It scans paired FASTQ files, executes the core Nextflow pipeline, and visualizes workflow metrics alongside DINEMITES and dcifer epidemiological results directly in your browser.
 
 ## Install
 
@@ -15,12 +13,6 @@ Install on Linux, WSL, or macOS:
 ```bash
 curl -fsSL https://github.com/a-nadeem9/simplseq-malaria-amplicon-pipeline-nf/releases/download/v2.2.1/install-simplseq.sh | bash
 simplseq run
-```
-
-The app opens locally at an address like:
-
-```text
-http://127.0.0.1:8501
 ```
 
 ## Use The App
@@ -44,7 +36,6 @@ Supported paired-read names include:
 *_R1.fq.gz / *_R2.fq.gz
 *_R1_001.fq.gz / *_R2_001.fq.gz
 ```
-
 The app writes a sample sheet named `samples.csv`. You can edit it before starting the run if sample names or dates need correction.
 
 ## Main Outputs
@@ -77,9 +68,9 @@ Common files include:
 | `dinemites_molfoi.tsv` | molFOI summaries |
 | `dinemites_plots/` | Subject plots |
 
-## dcifer Outputs
+## Dcifer Outputs
 
-dcifer results are written to:
+Dcifer results are written to:
 
 ```text
 <results>/dcifer/
@@ -95,10 +86,19 @@ Common files include:
 | `dcifer_pvalue_matrix.tsv` | Raw p-value matrix |
 | `dcifer_plots/` | Relatedness heatmaps |
 
-Raw dcifer p-values are exploratory unless allele frequencies come from an appropriate background population.
+> [!NOTE]
+> Raw dcifer p-values are exploratory unless allele frequencies come from an appropriate background population.
 
-## Notes
+<div style="color: grey;">
 
-- Linux, WSL, and macOS are supported.
-- Apple Silicon Macs require Rosetta because the app uses the Intel Conda runtime for DADA2 compatibility.
-- The app installs a managed runtime under `~/.local/share/simplseq/`.
+## References
+
+- Schwabl P, Amaya-Romero J-E, Neafsey DE, et al. SIMPLseq: a high-sensitivity *Plasmodium falciparum* genotyping and PCR contamination tracking tool. *Malaria Journal*. 2026. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12958562/" style="color: grey;">https://pmc.ncbi.nlm.nih.gov/articles/PMC12958562/</a>
+
+- Broad Institute. malaria-amplicon-pipeline. GitHub. <a href="https://github.com/broadinstitute/malaria-amplicon-pipeline" style="color: grey;">https://github.com/broadinstitute/malaria-amplicon-pipeline</a>
+
+- Nickols WA, Schwabl P, Niangaly A, Murphy SC, Crompton PD, Neafsey DE. Distinguishing new from persistent infections at the strain level using longitudinal genotyping data. 2025. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11839113/" style="color: grey;">https://pmc.ncbi.nlm.nih.gov/articles/PMC11839113/</a>
+
+- Gerlovina I, Gerlovin B, Rodríguez-Barraquer I, Greenhouse B. Dcifer: an IBD-based method to calculate genetic distance between polyclonal infections. *Genetics*. 2022;222(2):iyac126. <a href="https://academic.oup.com/genetics/article/222/2/iyac126/6674513" style="color: grey;">https://academic.oup.com/genetics/article/222/2/iyac126/6674513</a>
+
+</div>
