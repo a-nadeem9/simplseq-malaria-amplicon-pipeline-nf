@@ -1,5 +1,5 @@
-<p align="left">
-  <img src="assets/simplseq-logo.png" alt="SIMPLseq-nf logo" width="540">
+<p align="center">
+  <img src="assets/simplseq-malaria-amplicon-pipeline-banner.png" alt="SIMPLseq-nf malaria amplicon pipeline" width="900">
 </p>
 
 # SIMPLseq-nf App
