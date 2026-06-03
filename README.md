@@ -2,7 +2,7 @@
   <img src="assets/simplseq-readme-banner.png" alt="SIMPLseq-nf malaria amplicon pipeline" width="620">
 </div>
 
-# SIMPLseq Malaria Amplicon Pipeline with Integrated Genomic Transmission Analysis
+# SIMPLseq-nf: A Malaria Amplicon Pipeline with Integrated Genomic Transmission Analysis
 
 SIMPLseq-nf is a local browser application for processing SIMPLseq-panel malaria amplicon sequencing data and integrates downstream DINEMITES and dcifer analyses for longitudinal new-infection and pairwise relatedness interpretation. It scans paired FASTQ files, executes the core Nextflow pipeline, and visualizes workflow metrics alongside DINEMITES and dcifer epidemiological results directly in your browser.
 
