@@ -1289,17 +1289,17 @@ td {
 }
 
 .notice {
-  border: 1px solid rgba(214, 168, 74, 0.45);
+  border: 1px solid rgba(199, 137, 20, 0.42);
   border-radius: var(--radius);
-  background: rgba(182, 129, 22, 0.09);
-  color: #eadbb4;
+  background: #fff8e8;
+  color: #6f4a08;
   padding: 10px 12px;
 }
 
 .notice.bad {
-  border-color: rgba(227, 109, 99, 0.45);
-  background: rgba(201, 75, 66, 0.09);
-  color: #f1c3bd;
+  border-color: rgba(201, 75, 66, 0.42);
+  background: #fff1ef;
+  color: #a52d25;
 }
 
 .table-wrap {

@@ -90,10 +90,24 @@ sample_type <- if ("sample_type" %in% colnames(samples)) {
 }
 
 meta <- samples %>%
-  mutate(.sample_type_for_filter = sample_type) %>%
+  mutate(
+    .sample_type_for_filter = sample_type,
+    sample_id = ifelse(is.na(.data$sample_id), "", trimws(as.character(.data$sample_id))),
+    participant_id = ifelse(is.na(.data$participant_id), "", trimws(as.character(.data$participant_id))),
+    collection_date = ifelse(is.na(.data$collection_date), "", trimws(as.character(.data$collection_date))),
+    replicate = ifelse(is.na(.data$replicate), "", trimws(as.character(.data$replicate)))
+  ) %>%
   filter(.data$.sample_type_for_filter != "negative" | is.na(.data$.sample_type_for_filter)) %>%
-  filter(nchar(trimws(.data$collection_date)) > 0, nchar(trimws(.data$participant_id)) > 0) %>%
-  select(sample_id, participant_id, collection_date, replicate)
+  mutate(
+    participant_id = ifelse(nchar(.data$participant_id) > 0, .data$participant_id, .data$sample_id),
+    replicate = ifelse(nchar(.data$replicate) > 0, .data$replicate, "sample"),
+    analysis_sample_id = ifelse(
+      nchar(.data$collection_date) > 0,
+      paste(.data$participant_id, .data$collection_date, sep = "_"),
+      .data$sample_id
+    )
+  ) %>%
+  select(sample_id, analysis_sample_id, participant_id, collection_date, replicate)
 
 matched_meta <- meta %>%
   semi_join(cigar_long %>% distinct(sample_id), by = "sample_id")
@@ -102,12 +116,17 @@ if (nrow(matched_meta) < nrow(meta)) {
   cat("[dcifer/bridge] WARNING:", nrow(meta) - nrow(matched_meta),
       "sample sheet rows are not present in the CIGAR table and will be ignored.\n")
 }
+if (any(nchar(matched_meta$collection_date) == 0)) {
+  cat("[dcifer/bridge] WARNING:",
+      sum(nchar(matched_meta$collection_date) == 0),
+      "matched sample rows have no collection_date; those rows will be analyzed as separate sequencing samples.\n")
+}
 
 cigar_meta <- cigar_long %>%
   inner_join(matched_meta, by = "sample_id")
 
 if (nrow(cigar_meta) == 0) {
-  stop("[dcifer/bridge] No samples matched between CIGAR table and samples.csv.")
+  stop("[dcifer/bridge] No sample_id values matched between the CIGAR table and samples.csv.")
 }
 
 if (args$abundance_denominator == "locus") {
@@ -138,7 +157,7 @@ cigar_meta <- cigar_meta %>%
   )
 
 filter_summary <- cigar_meta %>%
-  group_by(.data$participant_id, .data$collection_date, .data$replicate) %>%
+  group_by(.data$analysis_sample_id, .data$participant_id, .data$collection_date, .data$replicate) %>%
   summarise(
     total_nonzero_alleles = sum(.data$reads > 0),
     passing_filter = sum(.data$present > 0),
@@ -148,7 +167,7 @@ filter_summary <- cigar_meta %>%
   arrange(.data$participant_id, .data$collection_date, .data$replicate)
 
 replicate_merged <- cigar_meta %>%
-  group_by(.data$participant_id, .data$collection_date, .data$locus, .data$allele) %>%
+  group_by(.data$analysis_sample_id, .data$participant_id, .data$collection_date, .data$locus, .data$allele) %>%
   summarise(
     n_replicates = n(),
     n_present = sum(.data$present),
@@ -160,7 +179,7 @@ replicate_merged <- cigar_meta %>%
   filter(.data$n_present == .data$n_replicates & .data$n_present > 0)
 
 replicate_summary <- replicate_merged %>%
-  group_by(.data$participant_id, .data$collection_date, .data$locus) %>%
+  group_by(.data$analysis_sample_id, .data$participant_id, .data$collection_date, .data$locus) %>%
   summarise(
     alleles_after_intersection = n(),
     .groups = "drop"
@@ -168,7 +187,7 @@ replicate_summary <- replicate_merged %>%
   arrange(.data$participant_id, .data$collection_date, .data$locus)
 
 dcifer_input <- replicate_merged %>%
-  mutate(sample_id = paste(.data$participant_id, .data$collection_date, sep = "_")) %>%
+  mutate(sample_id = .data$analysis_sample_id) %>%
   select(
     sample_id,
     participant_id,

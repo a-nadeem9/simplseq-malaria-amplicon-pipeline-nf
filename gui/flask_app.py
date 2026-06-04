@@ -251,6 +251,24 @@ def json_error(message: str, status: int = 400, **extra: Any):
     return jsonify(payload), status
 
 
+def log_failure_detail(log_path: Path, fallback: str) -> str:
+    try:
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return fallback
+    for line in reversed(lines):
+        clean = ANSI_RE.sub("", line).strip()
+        if not clean:
+            continue
+        if "Execution halted" in clean:
+            continue
+        if "ERROR:" in clean:
+            return clean.split("ERROR:", 1)[1].strip()
+        if clean.startswith("Error"):
+            return clean
+    return fallback
+
+
 def sample_pair_json(pair: FastqPair, root: Path) -> dict[str, str]:
     return {
         "sample_id": pair.sample_id,
@@ -1221,7 +1239,7 @@ def create_app(root: Path | None = None, workspace_root: Path | None = None) -> 
             if result.returncode != 0:
                 write_json(state_file, state_payload(
                     "failed",
-                    detail="simplseq_to_dinemites.R failed. Check dinemites.log.",
+                    detail=log_failure_detail(log_path, "simplseq_to_dinemites.R failed. Check dinemites.log."),
                     completed_at=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
                 ))
                 return
@@ -1260,7 +1278,7 @@ def create_app(root: Path | None = None, workspace_root: Path | None = None) -> 
             if result.returncode != 0:
                 write_json(state_file, state_payload(
                     "failed",
-                    detail="run_dinemites.R failed. Check dinemites.log.",
+                    detail=log_failure_detail(log_path, "run_dinemites.R failed. Check dinemites.log."),
                     completed_at=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
                 ))
                 return
@@ -1658,7 +1676,7 @@ def create_app(root: Path | None = None, workspace_root: Path | None = None) -> 
             if result.returncode != 0:
                 write_json(state_file, state_payload(
                     "failed",
-                    detail="simplseq_to_dcifer.R failed. Check dcifer.log.",
+                    detail=log_failure_detail(log_path, "simplseq_to_dcifer.R failed. Check dcifer.log."),
                     completed_at=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
                 ))
                 return
@@ -1688,7 +1706,7 @@ def create_app(root: Path | None = None, workspace_root: Path | None = None) -> 
             if result.returncode != 0:
                 write_json(state_file, state_payload(
                     "failed",
-                    detail="run_dcifer.R failed. Check dcifer.log.",
+                    detail=log_failure_detail(log_path, "run_dcifer.R failed. Check dcifer.log."),
                     completed_at=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
                 ))
                 return
@@ -1801,7 +1819,7 @@ def create_app(root: Path | None = None, workspace_root: Path | None = None) -> 
                 summary[key] = summary_json[key]
 
         coi_rows = dinemites_tsv_rows(dc_dir / "dcifer_coi.tsv", limit=10000)
-        if coi_rows:
+        if coi_rows and "samples" not in summary_json:
             summary["samples"] = len({
                 dinemites_row_value(row_item, "sample_id")
                 for row_item in coi_rows
@@ -1837,10 +1855,11 @@ def create_app(root: Path | None = None, workspace_root: Path | None = None) -> 
                         raw_p_count += 1
                 except (TypeError, ValueError):
                     pass
-        if pair_rows:
+        if pair_rows and "pairs" not in summary_json:
             summary["pairs"] = len(pair_rows)
+        if pair_rows and "raw_p_le_alpha" not in summary_json:
             summary["raw_p_le_alpha"] = raw_p_count
-        if estimates:
+        if estimates and "max_relatedness" not in summary_json:
             summary["max_relatedness"] = round(max(estimates), 6)
 
         return jsonify({

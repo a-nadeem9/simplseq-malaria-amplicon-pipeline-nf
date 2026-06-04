@@ -57,6 +57,13 @@ samples <- read.csv(args$samples, header = TRUE, stringsAsFactors = FALSE)
 # Normalise column names for samples.csv (handle minor variations)
 colnames(samples) <- tolower(trimws(colnames(samples)))
 
+required_sample_cols <- c("sample_id", "participant_id", "collection_date", "replicate")
+missing_cols <- setdiff(required_sample_cols, colnames(samples))
+if (length(missing_cols) > 0) {
+  stop("[DINEMITES/bridge] ERROR: Missing required samples.csv columns: ",
+       paste(missing_cols, collapse = ", "))
+}
+
 # ── 2. Parse column headers: "LOCUS,CIGAR" → locus + cigar ────────────────
 # The first column is "sample"; remaining are "LOCUS,CIGAR" encoded haplotypes
 haplotype_cols <- setdiff(colnames(cigar_wide), "sample")
@@ -85,18 +92,49 @@ cigar_long <- cigar_wide %>%
 
 # ── 4. Join metadata ──────────────────────────────────────────────────────
 # Match samples.csv on sample_id
-meta <- samples %>%
-  filter(tolower(sample_type) != "negative" | is.na(sample_type)) %>%
-  filter(nchar(trimws(collection_date)) > 0, nchar(trimws(participant_id)) > 0) %>%
-  select(sample_id, participant_id, collection_date, replicate)
+sample_type <- if ("sample_type" %in% colnames(samples)) {
+  tolower(trimws(samples$sample_type))
+} else {
+  rep("sample", nrow(samples))
+}
 
-matched_meta <- meta %>%
+meta_candidates <- samples %>%
+  mutate(
+    .sample_type_for_filter = sample_type,
+    sample_id = ifelse(is.na(.data$sample_id), "", trimws(as.character(.data$sample_id))),
+    participant_id = ifelse(is.na(.data$participant_id), "", trimws(as.character(.data$participant_id))),
+    collection_date = ifelse(is.na(.data$collection_date), "", trimws(as.character(.data$collection_date))),
+    replicate = ifelse(is.na(.data$replicate), "", trimws(as.character(.data$replicate)))
+  ) %>%
+  filter(.data$.sample_type_for_filter != "negative" | is.na(.data$.sample_type_for_filter))
+
+matched_candidates <- meta_candidates %>%
   semi_join(cigar_long %>% distinct(sample_id), by = "sample_id")
 
-if (nrow(matched_meta) < nrow(meta)) {
-  cat("[DINEMITES/bridge] WARNING:", nrow(meta) - nrow(matched_meta),
+if (nrow(matched_candidates) < nrow(meta_candidates)) {
+  cat("[DINEMITES/bridge] WARNING:", nrow(meta_candidates) - nrow(matched_candidates),
       "sample sheet rows are not present in the CIGAR table and will be ignored.\n")
 }
+
+if (nrow(matched_candidates) == 0) {
+  stop("[DINEMITES/bridge] ERROR: No sample_id values matched between the CIGAR table and samples.csv.")
+}
+
+missing_participant <- sum(nchar(matched_candidates$participant_id) == 0)
+missing_date <- sum(nchar(matched_candidates$collection_date) == 0)
+if (missing_participant > 0) {
+  stop("[DINEMITES/bridge] ERROR: DINEMITES requires participant_id for every matched sample. ",
+       missing_participant, " matched rows are missing participant_id.")
+}
+if (missing_date > 0) {
+  stop("[DINEMITES/bridge] ERROR: DINEMITES requires collection_date values in YYYY-MM format. ",
+       missing_date, " matched sample rows are missing collection_date.")
+}
+
+meta <- matched_candidates %>%
+  select(sample_id, participant_id, collection_date, replicate)
+
+matched_meta <- meta
 
 sample_timepoints <- matched_meta %>%
   distinct(participant_id, collection_date) %>%

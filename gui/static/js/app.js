@@ -34,6 +34,7 @@ let displayedProgressPercent = 0;
 let progressAnimationFrame = null;
 let activeOutdir = "";
 let pathStyle = "";
+let workspaceRoot = "";
 let followLog = true;
 
 function $(selector) {
@@ -115,6 +116,7 @@ function normalizePathInput(selector) {
 function normalizePathInputs() {
   ["#fastq-dir", "#samples-out", "#run-samples", "#outdir", "#results-outdir", "#browse-path"].forEach(normalizePathInput);
   syncPathTitles();
+  updateSamplePathHelp();
 }
 
 function syncPathTitles() {
@@ -122,6 +124,38 @@ function syncPathTitles() {
     const node = $(selector);
     if (node) node.title = node.value || "";
   });
+}
+
+function isAbsolutePath(value) {
+  const raw = String(value || "").trim();
+  return raw.startsWith("/") || /^[A-Za-z]:[\\/]/.test(raw);
+}
+
+function joinPath(parent, child) {
+  const base = String(parent || "").trim();
+  const name = String(child || "").trim();
+  if (!base) return name;
+  const separator = base.includes("\\") && !base.includes("/") ? "\\" : "/";
+  return `${base.replace(/[\\/]+$/, "")}${separator}${name.replace(/^[\\/]+/, "")}`;
+}
+
+function describeSampleSheetPath(value, contextPath, prefix) {
+  const path = String(value || "samples.csv").trim() || "samples.csv";
+  if (isAbsolutePath(path)) return `${prefix}: ${path}`;
+  const context = String(contextPath || "").trim();
+  if (context) return `${prefix}: ${joinPath(context, path)}`;
+  return `${prefix}: app workspace/${path}`;
+}
+
+function updateSamplePathHelp() {
+  text(
+    $("#samples-out-help"),
+    describeSampleSheetPath($("#samples-out")?.value, workspaceRoot, "Will save sample sheet to")
+  );
+  text(
+    $("#run-samples-help"),
+    describeSampleSheetPath($("#run-samples")?.value, workspaceRoot, "Using sample sheet")
+  );
 }
 
 function saveSettings() {
@@ -604,10 +638,12 @@ async function scanFastqs() {
     text($("#metric-md5"), payload.md5_files);
     text($("#metric-missing"), payload.missing_pairs);
     text($("#sample-sheet-title"), payload.samples_relative || payload.samples_out);
+    text($("#samples-out-help"), `Saved sample sheet to: ${payload.samples_out}`);
     renderScanPreview(payload.preview || []);
     renderSamplePreview(payload.sample_preview || []);
     renderWarnings(payload);
     $("#run-samples").value = $("#samples-out").value;
+    text($("#run-samples-help"), `Using sample sheet: ${payload.samples_out}`);
     const successfulScan = Boolean(payload.samples_written && Number(payload.pair_count || 0) > 0);
     if (payload.samples_written) {
       setPill($("#scan-status"), `${payload.pair_count} pairs`, payload.pair_count ? "ok" : "warn");
@@ -1320,6 +1356,7 @@ function currentRunOutdir() {
 async function loadHealth() {
   const payload = await fetchJson("/api/health");
   pathStyle = payload.path_style || pathStyle;
+  workspaceRoot = payload.workspace_root || workspaceRoot;
   renderCommonPaths(payload.common_paths || []);
   if (payload.workspace_root && $("#workspace-root")) {
     text($("#workspace-root"), payload.workspace_root);
@@ -1356,6 +1393,7 @@ async function loadBrowse(path) {
     invalidateScanReady();
     saveSettings();
     setFolderMessage("Folder selected. Click Scan folder when ready.", "ok");
+    updateSamplePathHelp();
     closeFolderModal();
   });
   current.append(meta, action);
@@ -1419,8 +1457,14 @@ function bindEvents() {
   ["#fastq-dir", "#samples-out"].forEach((selector) => {
     const input = $(selector);
     if (!input) return;
-    input.addEventListener("input", invalidateScanReady);
-    input.addEventListener("change", invalidateScanReady);
+    input.addEventListener("input", () => {
+      invalidateScanReady();
+      updateSamplePathHelp();
+    });
+    input.addEventListener("change", () => {
+      invalidateScanReady();
+      updateSamplePathHelp();
+    });
   });
   document.querySelectorAll("input").forEach((input) => {
     input.addEventListener("change", saveSettings);
@@ -1470,6 +1514,12 @@ function bindEvents() {
   });
   $("#samples-out").addEventListener("change", () => {
     $("#run-samples").value = $("#samples-out").value;
+    updateSamplePathHelp();
+    saveSettings();
+  });
+  $("#run-samples").addEventListener("input", updateSamplePathHelp);
+  $("#run-samples").addEventListener("change", () => {
+    updateSamplePathHelp();
     saveSettings();
   });
 }

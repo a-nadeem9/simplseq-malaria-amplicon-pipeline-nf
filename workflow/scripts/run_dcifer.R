@@ -110,8 +110,16 @@ if (length(dsmp) < 2) {
   stop("[dcifer/run] At least two dcifer samples are required for pairwise relatedness.")
 }
 
+available_loci <- length(unique(dcifer_input$locus))
+coi_lrank <- min(args$coi_lrank, available_loci)
+if (coi_lrank < args$coi_lrank) {
+  cat("[dcifer/run] Requested COI lrank", args$coi_lrank,
+      "but only", available_loci, "locus/loci are available; using lrank",
+      coi_lrank, "\n")
+}
+
 cat("[dcifer/run] Estimating COI...\n")
-coi <- dcifer::getCOI(dsmp, lrank = args$coi_lrank)
+coi <- dcifer::getCOI(dsmp, lrank = coi_lrank)
 if (any(is.na(coi))) {
   bad_samples <- names(coi)[is.na(coi)]
   stop("[dcifer/run] COI could not be estimated for: ", paste(bad_samples, collapse = ", "),
@@ -272,7 +280,7 @@ summary_lines <- c(
   "{",
   paste0("  ", json_string("status"), ": ", json_string("complete"), ","),
   paste0("  ", json_string("afreq_mode"), ": ", json_string(args$afreq_mode), ","),
-  paste0("  ", json_string("coi_lrank"), ": ", args$coi_lrank, ","),
+  paste0("  ", json_string("coi_lrank"), ": ", coi_lrank, ","),
   paste0("  ", json_string("ibd_grid_nr"), ": ", args$ibd_grid_nr, ","),
   paste0("  ", json_string("alpha"), ": ", args$alpha, ","),
   paste0("  ", json_string("samples"), ": ", length(samples), ","),
