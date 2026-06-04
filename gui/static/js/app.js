@@ -598,6 +598,12 @@ function renderWarnings(scan) {
       text: "Large dataset detected. Full runs can require much more memory than a typical laptop. Run a small test first if this is a new setup."
     });
   }
+  if (Number(scan.collection_year_defaulted || 0) > 0) {
+    notices.push({
+      className: "notice",
+      text: `${scan.collection_year_defaulted} samples had a month but no year in the filename, so collection_date uses ${scan.default_collection_year}. Edit samples.csv before DINEMITES if needed.`
+    });
+  }
   if (scan.duplicate_sample_ids && scan.duplicate_sample_ids.length) {
     notices.push({
       className: "notice bad",

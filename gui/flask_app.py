@@ -32,7 +32,14 @@ from simplseq.runner import (
     project_root,
     results_manifest,
 )
-from simplseq.samplesheet import SAMPLE_FIELDS, FastqPair, FastqScan, scan_fastqs, write_samples_csv
+from simplseq.samplesheet import (
+    DEFAULT_COLLECTION_YEAR,
+    SAMPLE_FIELDS,
+    FastqPair,
+    FastqScan,
+    scan_fastqs,
+    write_samples_csv,
+)
 
 
 RUN_PROCESSES: dict[str, subprocess.Popen[str]] = {}
@@ -274,6 +281,7 @@ def sample_pair_json(pair: FastqPair, root: Path) -> dict[str, str]:
         "sample_id": pair.sample_id,
         "participant_id": pair.participant_id,
         "collection_date": pair.collection_date,
+        "collection_date_inferred": pair.collection_date_inferred,
         "replicate": pair.replicate,
         "sample_type": pair.sample_type,
         "fastq_1": rel_or_abs(root, pair.fastq_1),
@@ -293,6 +301,8 @@ def scan_json(scan: FastqScan, root: Path, *, preview_limit: int = 100) -> dict[
         "missing_r2": scan.missing_r2[:100],
         "orphan_r2": scan.orphan_r2[:100],
         "duplicate_sample_ids": scan.duplicate_sample_ids,
+        "collection_year_defaulted": sum(1 for pair in scan.pairs if pair.collection_date_inferred),
+        "default_collection_year": DEFAULT_COLLECTION_YEAR,
         "preview": [sample_pair_json(pair, root) for pair in scan.pairs[:preview_limit]],
     }
 

@@ -7,28 +7,43 @@ import os
 import re
 from collections import Counter
 from dataclasses import dataclass
+from typing import Any
 from pathlib import Path
 
 from .pathutils import user_path
 
 
-MONTHS = {
-    "Jan": "01",
-    "Feb": "02",
-    "Mar": "03",
-    "Apr": "04",
-    "May": "05",
-    "Jun": "06",
-    "Jul": "07",
-    "Aug": "08",
-    "Sep": "09",
-    "Oct": "10",
-    "Nov": "11",
-    "Dec": "12",
+MONTH_ALIASES = {
+    "jan": "01",
+    "january": "01",
+    "feb": "02",
+    "february": "02",
+    "mar": "03",
+    "march": "03",
+    "apr": "04",
+    "april": "04",
+    "may": "05",
+    "jun": "06",
+    "june": "06",
+    "jul": "07",
+    "july": "07",
+    "aug": "08",
+    "august": "08",
+    "sep": "09",
+    "sept": "09",
+    "september": "09",
+    "oct": "10",
+    "october": "10",
+    "nov": "11",
+    "november": "11",
+    "dec": "12",
+    "december": "12",
 }
-MONTH_ALIASES = {key.lower(): value for key, value in MONTHS.items()}
-MONTH_ALIASES["sept"] = "09"
-MONTH_PATTERN = r"Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec"
+MONTH_PATTERN = (
+    r"January|February|March|April|June|July|August|September|October|November|December|"
+    r"Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec"
+)
+DEFAULT_COLLECTION_YEAR = "2022"
 NON_PARTICIPANT_TOKEN_RE = re.compile(r"^(run|lane|pool|amplicon|l)[0-9A-Za-z]*$", re.IGNORECASE)
 NEGATIVE_SAMPLE_RE = re.compile(
     r"(^|[^a-z0-9])(ctrl|control|ntc|negative|neg|blank|no[-_ ]?template)([^a-z0-9]|$)",
@@ -61,6 +76,7 @@ class FastqPair:
     sample_type: str
     participant_id: str = ""
     collection_date: str = ""
+    collection_date_inferred: bool = False
     replicate: str = ""
 
 
@@ -107,10 +123,11 @@ def infer_sample_type(sample_id: str) -> str:
     return "negative" if NEGATIVE_SAMPLE_RE.search(sample_id) else "sample"
 
 
-def parse_label_metadata(label: str) -> dict[str, str]:
+def parse_label_metadata(label: str) -> dict[str, Any]:
     parsed = {
         "participant_id": "",
         "collection_date": "",
+        "collection_date_inferred": False,
         "replicate": "",
     }
 
@@ -149,6 +166,7 @@ def parse_label_metadata(label: str) -> dict[str, str]:
         label,
     )
     compact_date = re.search(r"(?P<year>20[0-9]{2}|19[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})", label)
+    month_only = re.search(rf"(^|[^A-Za-z0-9])(?P<month>{MONTH_PATTERN})([^A-Za-z0-9]|$)", label, re.IGNORECASE)
 
     if month_year:
         parsed["collection_date"] = f"{month_year.group('year')}-{_month_number(month_year.group('month'))}"
@@ -166,6 +184,9 @@ def parse_label_metadata(label: str) -> dict[str, str]:
             compact_date.group("month"),
             compact_date.group("day"),
         )
+    elif month_only:
+        parsed["collection_date"] = f"{DEFAULT_COLLECTION_YEAR}-{_month_number(month_only.group('month'))}"
+        parsed["collection_date_inferred"] = True
 
     tokens = [token for token in re.split(r"[^A-Za-z0-9]+", label) if token]
     for token in tokens:
@@ -186,7 +207,7 @@ def parse_label_metadata(label: str) -> dict[str, str]:
     return parsed
 
 
-def parse_fastq_name(name: str, include_pool_in_sample_id: bool = False) -> dict[str, str]:
+def parse_fastq_name(name: str, include_pool_in_sample_id: bool = False) -> dict[str, Any]:
     base = os.path.basename(name)
     read_parts = split_read_suffix(base)
     stripped = read_parts[0] if read_parts else re.sub(r"_R[12](?:_001)?\.f(?:ast)?q\.gz$", "", base)
@@ -194,6 +215,7 @@ def parse_fastq_name(name: str, include_pool_in_sample_id: bool = False) -> dict
         "sample_id": stripped,
         "participant_id": "",
         "collection_date": "",
+        "collection_date_inferred": False,
         "replicate": "",
     }
     mpg = re.match(
@@ -274,6 +296,7 @@ def scan_fastqs(fastq_dir: Path | str, *, include_pool_in_sample_id: bool = Fals
                 sample_type=infer_sample_type(sample_id),
                 participant_id=parsed["participant_id"],
                 collection_date=parsed["collection_date"],
+                collection_date_inferred=bool(parsed["collection_date_inferred"]),
                 replicate=parsed["replicate"],
             )
         )

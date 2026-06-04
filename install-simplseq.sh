@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${SIMPLSEQ_VERSION:-v2.2.3}"
+VERSION="${SIMPLSEQ_VERSION:-v2.2.4}"
 TARBALL="simplseq-nf-app-${VERSION}.tar.gz"
 CHECKSUMS="SHA256SUMS.txt"
 DEFAULT_BASE_URL="https://github.com/a-nadeem9/simplseq-malaria-amplicon-pipeline-nf/releases/download/${VERSION}"
