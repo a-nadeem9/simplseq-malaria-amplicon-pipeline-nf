@@ -13,7 +13,7 @@ Your data stays on your computer.
 Install on Linux, WSL, or macOS:
 
 ```bash
-curl -fsSL https://github.com/a-nadeem9/simplseq-malaria-amplicon-pipeline-nf/releases/download/v2.2.5/install-simplseq.sh | bash
+curl -fsSL https://github.com/a-nadeem9/simplseq-malaria-amplicon-pipeline-nf/releases/download/v2.2.6/install-simplseq.sh | bash
 simplseq run
 ```
 
@@ -38,7 +38,7 @@ Supported paired-read names include:
 *_R1.fq.gz / *_R2.fq.gz
 *_R1_001.fq.gz / *_R2_001.fq.gz
 ```
-The app writes a sample sheet named `samples.csv`. If filenames include a month but no year, the app uses `2022` for `collection_date`. You can edit `samples.csv` before starting the run if sample names or dates need correction.
+The app writes a sample sheet named `samples.csv`. You can edit it before starting the run if sample names or dates need correction. If DINEMITES sees a month but no year, it assumes year `2022` for that DINEMITES run only.
 
 ## Main Outputs
 

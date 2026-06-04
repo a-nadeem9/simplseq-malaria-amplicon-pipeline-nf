@@ -15,6 +15,41 @@ suppressPackageStartupMessages({
   library(tidyr)
 })
 
+DEFAULT_COLLECTION_YEAR <- "2022"
+MONTH_ALIASES <- c(
+  jan = "01", january = "01",
+  feb = "02", february = "02",
+  mar = "03", march = "03",
+  apr = "04", april = "04",
+  may = "05",
+  jun = "06", june = "06",
+  jul = "07", july = "07",
+  aug = "08", august = "08",
+  sep = "09", sept = "09", september = "09",
+  oct = "10", october = "10",
+  nov = "11", november = "11",
+  dec = "12", december = "12"
+)
+MONTH_PATTERN <- paste(names(MONTH_ALIASES)[order(nchar(names(MONTH_ALIASES)), decreasing = TRUE)],
+                       collapse = "|")
+
+infer_collection_date_from_sample_id <- function(sample_id) {
+  label <- tolower(as.character(sample_id))
+  pattern <- paste0("(^|[^[:alnum:]])(", MONTH_PATTERN, ")([^[:alnum:]]|$)")
+  match <- regexec(pattern, label, ignore.case = TRUE, perl = TRUE)
+  parts <- regmatches(label, match)
+  vapply(parts, function(item) {
+    if (length(item) < 3) {
+      return("")
+    }
+    month <- MONTH_ALIASES[[tolower(item[[3]])]]
+    if (is.null(month) || is.na(month)) {
+      return("")
+    }
+    paste0(DEFAULT_COLLECTION_YEAR, "-", month)
+  }, character(1))
+}
+
 # ── CLI arguments ──────────────────────────────────────────────────────────
 option_list <- list(
   make_option("--cigar", type = "character", help = "Path to seqtab_cigar.tsv"),
@@ -127,8 +162,19 @@ if (missing_participant > 0) {
        missing_participant, " matched rows are missing participant_id.")
 }
 if (missing_date > 0) {
-  stop("[DINEMITES/bridge] ERROR: DINEMITES requires collection_date values in YYYY-MM format. ",
-       missing_date, " matched sample rows are missing collection_date.")
+  inferred_dates <- infer_collection_date_from_sample_id(matched_candidates$sample_id)
+  can_infer <- nchar(matched_candidates$collection_date) == 0 & nchar(inferred_dates) > 0
+  if (any(can_infer)) {
+    matched_candidates$collection_date[can_infer] <- inferred_dates[can_infer]
+    cat("[DINEMITES/bridge] WARNING:", sum(can_infer),
+        "matched rows had month but no year in sample_id; assuming year",
+        DEFAULT_COLLECTION_YEAR, "for DINEMITES only.\n")
+  }
+  missing_date <- sum(nchar(matched_candidates$collection_date) == 0)
+  if (missing_date > 0) {
+    stop("[DINEMITES/bridge] ERROR: DINEMITES requires collection_date values in YYYY-MM format. ",
+         missing_date, " matched sample rows are missing collection_date and no month could be inferred from sample_id.")
+  }
 }
 
 meta <- matched_candidates %>%

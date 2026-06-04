@@ -43,7 +43,6 @@ MONTH_PATTERN = (
     r"January|February|March|April|June|July|August|September|October|November|December|"
     r"Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec"
 )
-DEFAULT_COLLECTION_YEAR = "2022"
 NON_PARTICIPANT_TOKEN_RE = re.compile(r"^(run|lane|pool|amplicon|l)[0-9A-Za-z]*$", re.IGNORECASE)
 NEGATIVE_SAMPLE_RE = re.compile(
     r"(^|[^a-z0-9])(ctrl|control|ntc|negative|neg|blank|no[-_ ]?template)([^a-z0-9]|$)",
@@ -185,7 +184,6 @@ def parse_label_metadata(label: str) -> dict[str, Any]:
             compact_date.group("day"),
         )
     elif month_only:
-        parsed["collection_date"] = f"{DEFAULT_COLLECTION_YEAR}-{_month_number(month_only.group('month'))}"
         parsed["collection_date_inferred"] = True
 
     tokens = [token for token in re.split(r"[^A-Za-z0-9]+", label) if token]

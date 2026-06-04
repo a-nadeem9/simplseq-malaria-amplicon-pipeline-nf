@@ -33,7 +33,6 @@ from simplseq.runner import (
     results_manifest,
 )
 from simplseq.samplesheet import (
-    DEFAULT_COLLECTION_YEAR,
     SAMPLE_FIELDS,
     FastqPair,
     FastqScan,
@@ -301,8 +300,7 @@ def scan_json(scan: FastqScan, root: Path, *, preview_limit: int = 100) -> dict[
         "missing_r2": scan.missing_r2[:100],
         "orphan_r2": scan.orphan_r2[:100],
         "duplicate_sample_ids": scan.duplicate_sample_ids,
-        "collection_year_defaulted": sum(1 for pair in scan.pairs if pair.collection_date_inferred),
-        "default_collection_year": DEFAULT_COLLECTION_YEAR,
+        "collection_month_without_year": sum(1 for pair in scan.pairs if pair.collection_date_inferred),
         "preview": [sample_pair_json(pair, root) for pair in scan.pairs[:preview_limit]],
     }
 
