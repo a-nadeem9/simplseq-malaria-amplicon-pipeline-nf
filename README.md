@@ -4,7 +4,9 @@
 
 # **SIMPLseq-nf:** *A Malaria Amplicon Pipeline with Integrated Genomic Transmission Analysis*
 
-SIMPLseq-nf is a local browser application for processing SIMPLseq-panel malaria amplicon sequencing data and integrates downstream DINEMITES and dcifer analyses for longitudinal new-infection and pairwise relatedness interpretation. It scans paired FASTQ files, executes the core Nextflow pipeline, and visualizes workflow metrics alongside DINEMITES and dcifer epidemiological results directly in your browser.
+SIMPLseq-nf App is a local browser app for SIMPLseq malaria amplicon sequencing runs. It scans paired FASTQ files, runs the SIMPLseq Nextflow workflow, and shows SIMPLseq, DINEMITES, and Dcifer results in your browser.
+
+Your data stays on your computer.
 
 ## Install
 
@@ -24,7 +26,7 @@ simplseq run
 5. Click **Start run**.
 6. Use **Results** to view reports and download output files.
 7. Use **DINEMITES** for new-infection analysis.
-8. Use **dcifer** for pairwise relatedness analysis.
+8. Use **Dcifer** for pairwise relatedness analysis.
 
 ## FASTQ Names
 
@@ -85,9 +87,6 @@ Common files include:
 | `dcifer_relatedness_matrix.tsv` | Relatedness matrix |
 | `dcifer_pvalue_matrix.tsv` | Raw p-value matrix |
 | `dcifer_plots/` | Relatedness heatmaps |
-
-> [!NOTE]
-> Raw dcifer p-values are exploratory unless allele frequencies come from an appropriate background population.
 
 <div style="color: grey;">
 

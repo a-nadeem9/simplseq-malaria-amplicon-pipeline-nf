@@ -25,6 +25,7 @@ const EMPTY_LOG_TEXT = "> Waiting for run.\n> Live progress appears here while S
 let pollTimer = null;
 let browseParent = "";
 let scanInFlight = false;
+let scanReady = false;
 let logInFlight = false;
 let latestStatusPayload = null;
 let lastRunStatus = "";
@@ -42,6 +43,20 @@ function $(selector) {
 function text(node, value) {
   if (!node) return;
   node.textContent = value == null ? "" : String(value);
+}
+
+function userMessage(value) {
+  let message = String(value || "").trim();
+  if (!message) return "";
+  message = message.replace(
+    /seqtab_cigar\.tsv is required:\s+\S*?run_dada2[\\/]+seqtab_cigar\.tsv/gi,
+    "Run the main SIMPLseq pipeline first. run_dada2/seqtab_cigar.tsv is required"
+  );
+  message = message.replace(
+    /Sample sheet not found:\s+\S*?([^\\/]+\.csv)\b/gi,
+    "Sample sheet not found: $1"
+  );
+  return message;
 }
 
 function terminalLineClass(line) {
@@ -118,8 +133,8 @@ function saveSettings() {
     outdir: $("#outdir").value,
     runName: $("#run-name").value,
     resultsOutdir: $("#results-outdir").value,
-    resumeRun: $("#resume-run").checked,
-    dryRun: $("#dry-run").checked,
+    resumeRun: false,
+    dryRun: false,
     cpus: $("#cpus").value,
     memory: $("#memory").value,
     dinemitesEnabled: $("#dinemites-enable") ? $("#dinemites-enable").checked : false,
@@ -156,8 +171,8 @@ function restoreSettings() {
   if (settings.outdir) $("#outdir").value = settings.outdir;
   if (settings.runName) $("#run-name").value = settings.runName;
   if (settings.resultsOutdir) $("#results-outdir").value = settings.resultsOutdir;
-  if (typeof settings.resumeRun === "boolean") $("#resume-run").checked = settings.resumeRun;
-  if (typeof settings.dryRun === "boolean") $("#dry-run").checked = settings.dryRun;
+  $("#resume-run").checked = false;
+  $("#dry-run").checked = false;
   if (settings.cpus != null) $("#cpus").value = settings.cpus;
   if (settings.memory != null) $("#memory").value = settings.memory;
   if (typeof settings.dinemitesEnabled === "boolean" && $("#dinemites-enable")) $("#dinemites-enable").checked = settings.dinemitesEnabled;
@@ -228,12 +243,27 @@ function delay(ms) {
 async function withButtonFeedback(button, busyText, action) {
   if (!button) return action();
   const oldText = button.textContent;
+  const oldLabel = button.getAttribute("aria-label");
+  const oldTitle = button.getAttribute("title");
+  const iconOnly = button.classList.contains("icon-button");
   button.disabled = true;
-  text(button, busyText);
+  if (iconOnly) {
+    button.classList.add("is-refreshing");
+    button.setAttribute("aria-label", busyText);
+    button.setAttribute("title", busyText);
+  } else {
+    text(button, busyText);
+  }
   try {
     await Promise.all([action(), delay(900)]);
   } finally {
-    text(button, oldText);
+    if (iconOnly) {
+      button.classList.remove("is-refreshing");
+      if (oldLabel) button.setAttribute("aria-label", oldLabel);
+      if (oldTitle) button.setAttribute("title", oldTitle);
+    } else {
+      text(button, oldText);
+    }
     button.disabled = false;
   }
 }
@@ -265,6 +295,7 @@ function bindPlotWheelScrolling() {
 
 function setPill(node, label, status) {
   if (!node) return;
+  node.hidden = false;
   node.classList.remove("ok", "warn", "bad");
   if (status) node.classList.add(status);
   text(node, label);
@@ -284,6 +315,14 @@ function isActiveStatus(status) {
 
 function checkStatusReady() {
   return ($("#check-status")?.textContent || "").trim().toLowerCase() === "ready";
+}
+
+function setScanReady(ready) {
+  scanReady = Boolean(ready);
+  const button = $("#proceed-run-button");
+  if (!button) return;
+  button.disabled = !scanReady;
+  button.title = scanReady ? "Continue to run setup." : "Scan a FASTQ folder successfully first.";
 }
 
 function stageClass(status) {
@@ -385,11 +424,29 @@ function setStep(name, active) {
 }
 
 function selectTab(name) {
+  const resultTabs = new Set(["results", "dinemites", "dcifer"]);
+  const currentPanel = document.querySelector(".tab-panel.is-active");
+  const nextPanelId = `tab-${name}`;
+  const isPanelChange = !currentPanel || currentPanel.id !== nextPanelId;
   document.querySelectorAll(".tab").forEach((tab) => {
-    tab.classList.toggle("is-active", tab.dataset.tab === name);
+    const active = tab.dataset.tab === name || (tab.dataset.tab === "results" && resultTabs.has(name));
+    tab.classList.toggle("is-active", active);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
-    panel.classList.toggle("is-active", panel.id === `tab-${name}`);
+    const active = panel.id === nextPanelId;
+    panel.classList.toggle("is-active", active);
+    panel.classList.remove("is-entering");
+    if (active && isPanelChange) {
+      requestAnimationFrame(() => {
+        panel.classList.add("is-entering");
+        window.setTimeout(() => panel.classList.remove("is-entering"), 260);
+      });
+    }
+  });
+  const subtabs = $("#results-subtabs");
+  if (subtabs) subtabs.hidden = !resultTabs.has(name);
+  document.querySelectorAll(".result-subtab").forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.resultsTab === name);
   });
   if (name === "dinemites") {
     loadDinemitesResults();
@@ -403,6 +460,10 @@ function setFolderMessage(message, className = "") {
   if (!node) return;
   node.className = `field-help ${className}`.trim();
   text(node, message);
+}
+
+function invalidateScanReady() {
+  setScanReady(false);
 }
 
 function row(cells) {
@@ -526,6 +587,7 @@ function renderWarnings(scan) {
 async function scanFastqs() {
   if (scanInFlight) return;
   scanInFlight = true;
+  setScanReady(false);
   saveSettings();
   setPill($("#scan-status"), "Scanning", "warn");
   $("#scan-button").disabled = true;
@@ -546,19 +608,24 @@ async function scanFastqs() {
     renderSamplePreview(payload.sample_preview || []);
     renderWarnings(payload);
     $("#run-samples").value = $("#samples-out").value;
+    const successfulScan = Boolean(payload.samples_written && Number(payload.pair_count || 0) > 0);
     if (payload.samples_written) {
       setPill($("#scan-status"), `${payload.pair_count} pairs`, payload.pair_count ? "ok" : "warn");
       setPill($("#sample-sheet-status"), `Wrote ${payload.sample_rows_written} rows`, payload.pair_count ? "ok" : "warn");
-      setStep("review", true);
+      if (successfulScan) setStep("review", true);
+      setScanReady(successfulScan);
     } else if (payload.duplicate_sample_ids && payload.duplicate_sample_ids.length) {
       setPill($("#scan-status"), "Duplicates", "bad");
       setPill($("#sample-sheet-status"), "Not written", "bad");
+      setScanReady(false);
     } else {
       setPill($("#scan-status"), "No pairs", "warn");
       setPill($("#sample-sheet-status"), "Empty", "warn");
+      setScanReady(false);
     }
     saveSettings();
   } catch (error) {
+    setScanReady(false);
     setPill($("#scan-status"), "Scan failed", "bad");
     renderWarnings({duplicate_sample_ids: [error.message]});
   } finally {
@@ -618,8 +685,8 @@ function runPayload() {
     samples: $("#run-samples").value,
     outdir: $("#outdir").value,
     run_name: $("#run-name").value,
-    resume: $("#resume-run").checked,
-    dry_run: $("#dry-run").checked,
+    resume: false,
+    dry_run: false,
     cpus: Number($("#cpus").value || 0),
     memory: $("#memory").value
   };
@@ -629,7 +696,7 @@ async function startRun() {
   saveSettings();
   $("#run-button").disabled = true;
   $("#run-message").className = "inline-message";
-  text($("#run-message"), $("#dry-run").checked ? "Starting preview..." : "Starting run...");
+  text($("#run-message"), "Starting run...");
   try {
     const payload = await postJson("/api/run", runPayload());
     activeOutdir = payload.outdir;
@@ -741,6 +808,7 @@ async function chooseFastqFolder() {
     if (payload.selected && payload.path) {
       $("#fastq-dir").value = payload.path;
       $("#browse-path").value = payload.path;
+      invalidateScanReady();
       saveSettings();
       setFolderMessage("Folder selected. Click Scan folder when ready.", "ok");
       return;
@@ -913,7 +981,7 @@ function renderStatus(payload) {
   $("#stop-button").hidden = !Boolean(payload.active);
   $("#stop-button").disabled = !Boolean(payload.active);
   setPill($("#run-state-pill"), status, pillStatus);
-  $("#run-button").disabled = Boolean(payload.active && !$("#dry-run").checked);
+  $("#run-button").disabled = Boolean(payload.active);
 }
 
 function resetRunDisplay() {
@@ -1285,6 +1353,7 @@ async function loadBrowse(path) {
   text(action, "Select");
   action.addEventListener("click", () => {
     $("#fastq-dir").value = payload.path;
+    invalidateScanReady();
     saveSettings();
     setFolderMessage("Folder selected. Click Scan folder when ready.", "ok");
     closeFolderModal();
@@ -1327,6 +1396,32 @@ function bindEvents() {
       saveSettings();
     });
   });
+  document.querySelectorAll(".result-subtab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      selectTab(tab.dataset.resultsTab);
+      saveSettings();
+    });
+  });
+  const proceedRunButton = $("#proceed-run-button");
+  if (proceedRunButton) {
+    proceedRunButton.addEventListener("click", () => {
+      if (proceedRunButton.disabled || !scanReady) return;
+      $("#run-samples").value = $("#samples-out").value;
+      proceedRunButton.classList.add("is-committing");
+      window.setTimeout(() => {
+        proceedRunButton.classList.remove("is-committing");
+        selectTab("run");
+        saveSettings();
+        window.scrollTo({top: 0, behavior: "smooth"});
+      }, 120);
+    });
+  }
+  ["#fastq-dir", "#samples-out"].forEach((selector) => {
+    const input = $(selector);
+    if (!input) return;
+    input.addEventListener("input", invalidateScanReady);
+    input.addEventListener("change", invalidateScanReady);
+  });
   document.querySelectorAll("input").forEach((input) => {
     input.addEventListener("change", saveSettings);
   });
@@ -1364,7 +1459,8 @@ function bindEvents() {
   const folderScrim = $(".folder-modal__scrim");
   if (folderScrim) folderScrim.addEventListener("click", closeFolderModal);
   $("#dry-run").addEventListener("change", () => {
-    text($("#run-button"), $("#dry-run").checked ? "Preview command" : "Start run");
+    $("#dry-run").checked = false;
+    text($("#run-button"), "Start run");
     saveSettings();
   });
   $("#outdir").addEventListener("change", () => {
@@ -1465,12 +1561,11 @@ async function runDinemites() {
       bayesian_adapt_delta: Number($("#dinemites-bayesian-adapt-delta").value || 0.99),
       bayesian_drop_out: $("#dinemites-bayesian-drop-out").checked
     });
-    text(msg, "DINEMITES analysis started.");
-    msg.classList.add("ok");
+    text(msg, "DINEMITES is running. Results will appear automatically when complete.");
     setPill($("#dinemites-status"), "Running", "warn");
     startDinemitesPolling();
   } catch (error) {
-    text(msg, error.message);
+    text(msg, userMessage(error.message));
     msg.classList.add("bad");
     setPill($("#dinemites-status"), "Failed", "bad");
     btn.disabled = false;
@@ -1494,19 +1589,29 @@ async function pollDinemitesStatus() {
   try {
     const payload = await fetchJson(`/api/dinemites/status?out=${out}`);
     const status = payload.status || "idle";
+    const msg = $("#dinemites-message");
     if (status === "running") {
       setPill($("#dinemites-status"), "Running", "warn");
+      const btn = $("#dinemites-run");
+      if (btn) btn.disabled = true;
+      if (msg && !msg.textContent.trim()) {
+        msg.className = "inline-message";
+        text(msg, "DINEMITES is running. Results will appear automatically when complete.");
+      }
     } else if (status === "complete") {
       setPill($("#dinemites-status"), "Complete", "ok");
       stopDinemitesPolling();
       await loadDinemitesResults();
+      if (msg) {
+        msg.className = "inline-message ok";
+        text(msg, "DINEMITES complete. Results are shown below.");
+      }
       updateDinemitesRunButton();
     } else if (status === "failed") {
       setPill($("#dinemites-status"), "Failed", "bad");
       const detail = payload.state?.detail || "DINEMITES analysis failed.";
-      const msg = $("#dinemites-message");
       msg.className = "inline-message bad";
-      text(msg, detail);
+      text(msg, userMessage(detail));
       stopDinemitesPolling();
       updateDinemitesRunButton();
     } else {
@@ -1681,6 +1786,7 @@ async function loadDinemitesResults() {
 
     if (status === "complete") {
       if (resultsPanel) resultsPanel.hidden = false;
+      setPill($("#dinemites-status"), "Complete", "ok");
       setPill($("#dinemites-results-status"), "Complete", "ok");
 
       const summary = payload.summary || {};
@@ -1716,6 +1822,13 @@ async function loadDinemitesResults() {
       enableDinemitesDownload("#dm-dl-new-infections", files.new_infections);
     } else if (status === "running") {
       setPill($("#dinemites-status"), "Running", "warn");
+      const runBtn = $("#dinemites-run");
+      const msg = $("#dinemites-message");
+      if (runBtn) runBtn.disabled = true;
+      if (msg && !msg.textContent.trim()) {
+        msg.className = "inline-message";
+        text(msg, "DINEMITES is running. Results will appear automatically when complete.");
+      }
       startDinemitesPolling();
     } else if (status === "failed") {
       if (resultsPanel) resultsPanel.hidden = true;
@@ -1730,19 +1843,6 @@ async function loadDinemitesResults() {
     dinemitesRunSummary = {};
     dinemitesSubjectRows = [];
     renderDinemitesPlots([]);
-  }
-}
-
-async function refreshDinemitesResults() {
-  const msg = $("#dinemites-message");
-  if (msg) {
-    msg.className = "inline-message";
-    text(msg, "Loading DINEMITES results...");
-  }
-  await loadDinemitesResults();
-  if (msg) {
-    text(msg, "DINEMITES results loaded.");
-    msg.classList.add("ok");
   }
 }
 
@@ -1763,8 +1863,6 @@ function bindDinemitesEvents() {
   if (toggle) toggle.addEventListener("change", handleDinemitesToggle);
   const runBtn = $("#dinemites-run");
   if (runBtn) runBtn.addEventListener("click", runDinemites);
-  const refreshBtn = $("#dinemites-refresh");
-  if (refreshBtn) refreshBtn.addEventListener("click", refreshDinemitesResults);
   const plotSelector = $("#dm-plot-selector");
   if (plotSelector) {
     plotSelector.addEventListener("change", () => {
@@ -1850,7 +1948,7 @@ async function runDcifer() {
   if (btn) btn.disabled = true;
   if (msg) {
     msg.className = "inline-message";
-    text(msg, "Starting dcifer analysis...");
+    text(msg, "Starting Dcifer analysis...");
   }
   try {
     await postJson("/api/dcifer/run", {
@@ -1864,14 +1962,13 @@ async function runDcifer() {
       afreq_mode: "current_run"
     });
     if (msg) {
-      text(msg, "dcifer analysis started.");
-      msg.classList.add("ok");
+      text(msg, "Dcifer is running. Results will appear automatically when complete.");
     }
     setPill($("#dcifer-status"), "Running", "warn");
     startDciferPolling();
   } catch (error) {
     if (msg) {
-      text(msg, error.message);
+      text(msg, userMessage(error.message));
       msg.classList.add("bad");
     }
     setPill($("#dcifer-status"), "Failed", "bad");
@@ -1896,20 +1993,30 @@ async function pollDciferStatus() {
   try {
     const payload = await fetchJson(`/api/dcifer/status?out=${out}`);
     const status = payload.status || "idle";
+    const msg = $("#dcifer-message");
     if (status === "running") {
       setPill($("#dcifer-status"), "Running", "warn");
+      const btn = $("#dcifer-run");
+      if (btn) btn.disabled = true;
+      if (msg && !msg.textContent.trim()) {
+        msg.className = "inline-message";
+        text(msg, "Dcifer is running. Results will appear automatically when complete.");
+      }
     } else if (status === "complete") {
       setPill($("#dcifer-status"), "Complete", "ok");
       stopDciferPolling();
       await loadDciferResults();
+      if (msg) {
+        msg.className = "inline-message ok";
+        text(msg, "Dcifer complete. Results are shown below.");
+      }
       updateDciferRunButton();
     } else if (status === "failed") {
       setPill($("#dcifer-status"), "Failed", "bad");
-      const detail = payload.state?.detail || "dcifer analysis failed.";
-      const msg = $("#dcifer-message");
+      const detail = payload.state?.detail || "Dcifer analysis failed.";
       if (msg) {
         msg.className = "inline-message bad";
-        text(msg, detail);
+        text(msg, userMessage(detail));
       }
       stopDciferPolling();
       updateDciferRunButton();
@@ -2181,9 +2288,9 @@ function renderDciferPlots(plots, matrices = {}) {
     $("#dcifer-plot-count"),
     $("#dcifer-view-plots"),
     visibleCount,
-    "No dcifer heatmaps available yet.",
-    "dcifer heatmap",
-    "dcifer heatmaps"
+    "No Dcifer heatmaps available yet.",
+    "Dcifer heatmap",
+    "Dcifer heatmaps"
   );
   if (matrixItems.length) {
     gallery.hidden = false;
@@ -2207,13 +2314,13 @@ function renderDciferPlots(plots, matrices = {}) {
 
     const img = document.createElement("img");
     img.src = plot.view_url;
-    img.alt = plot.title || plot.filename || "dcifer plot";
+    img.alt = plot.title || plot.filename || "Dcifer plot";
     img.loading = "lazy";
     figure.appendChild(img);
 
     const caption = document.createElement("figcaption");
     const title = document.createElement("span");
-    text(title, plot.title || plot.filename || "dcifer plot");
+    text(title, plot.title || plot.filename || "Dcifer plot");
     caption.appendChild(title);
 
     if (plot.download_url) {
@@ -2261,6 +2368,7 @@ async function loadDciferResults() {
 
     if (status === "complete") {
       if (resultsPanel) resultsPanel.hidden = false;
+      setPill($("#dcifer-status"), "Complete", "ok");
       setPill($("#dcifer-results-status"), "Complete", "ok");
       const summary = payload.summary || {};
       text($("#dcifer-samples"), formatNumber(summary.samples, 0));
@@ -2277,6 +2385,13 @@ async function loadDciferResults() {
       enableDciferDownload("#dcifer-dl-matrix", files.relatedness_matrix);
     } else if (status === "running") {
       setPill($("#dcifer-status"), "Running", "warn");
+      const runBtn = $("#dcifer-run");
+      const msg = $("#dcifer-message");
+      if (runBtn) runBtn.disabled = true;
+      if (msg && !msg.textContent.trim()) {
+        msg.className = "inline-message";
+        text(msg, "Dcifer is running. Results will appear automatically when complete.");
+      }
       startDciferPolling();
     } else if (status === "failed") {
       if (resultsPanel) resultsPanel.hidden = true;
@@ -2287,19 +2402,6 @@ async function loadDciferResults() {
   } catch (_error) {
     // Results may not exist yet.
     renderDciferPlots([]);
-  }
-}
-
-async function refreshDciferResults() {
-  const msg = $("#dcifer-message");
-  if (msg) {
-    msg.className = "inline-message";
-    text(msg, "Loading dcifer results...");
-  }
-  await loadDciferResults();
-  if (msg) {
-    text(msg, "dcifer results loaded.");
-    msg.classList.add("ok");
   }
 }
 
@@ -2320,8 +2422,6 @@ function bindDciferEvents() {
   if (toggle) toggle.addEventListener("change", handleDciferToggle);
   const runBtn = $("#dcifer-run");
   if (runBtn) runBtn.addEventListener("click", runDcifer);
-  const refreshBtn = $("#dcifer-refresh");
-  if (refreshBtn) refreshBtn.addEventListener("click", refreshDciferResults);
   [
     "#dcifer-min-abundance-pct",
     "#dcifer-abundance-denominator",
@@ -2345,7 +2445,8 @@ async function init() {
   bindDinemitesEvents();
   bindDciferEvents();
   selectTab("inputs");
-  text($("#run-button"), $("#dry-run").checked ? "Preview command" : "Start run");
+  setScanReady(false);
+  text($("#run-button"), "Start run");
   try {
     await loadHealth();
   } catch (_error) {

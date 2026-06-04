@@ -1720,7 +1720,8 @@ def create_app(root: Path | None = None, workspace_root: Path | None = None) -> 
         cigar_path = outdir / "run_dada2" / "seqtab_cigar.tsv"
         if not cigar_path.exists():
             return json_error(
-                f"Pipeline results not found. seqtab_cigar.tsv is required: {cigar_path}",
+                "Pipeline results not found. Run the main SIMPLseq pipeline first "
+                "(run_dada2/seqtab_cigar.tsv is required).",
                 400,
             )
         if not samples.exists():

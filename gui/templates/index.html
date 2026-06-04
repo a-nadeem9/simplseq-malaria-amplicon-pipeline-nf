@@ -15,15 +15,20 @@
         </div>
       </div>
       <nav class="tabs" aria-label="Main sections">
-        <button class="tab is-active" data-tab="inputs">Inputs</button>
-        <button class="tab" data-tab="run">Run</button>
-        <button class="tab" data-tab="results">Results</button>
-        <button class="tab" data-tab="dinemites">DINEMITES</button>
-        <button class="tab" data-tab="dcifer">dcifer</button>
+        <button class="tab is-active" data-tab="inputs"><span class="step-number">1</span>Configuration</button>
+        <button class="tab" data-tab="run"><span class="step-number">2</span>Active Run</button>
+        <button class="tab" data-tab="results"><span class="step-number">3</span>Results &amp; Analysis</button>
       </nav>
-      <div class="pipeline-status" aria-live="polite">
-        <span id="pipeline-label">Idle</span>
-        <strong id="pipeline-percent">0%</strong>
+      <div class="nav-actions">
+        <div class="pipeline-status" aria-live="polite">
+          <span id="pipeline-label">Idle</span>
+          <strong id="pipeline-percent">0%</strong>
+        </div>
+        <button class="app-help-button" type="button" aria-label="Quick start" aria-describedby="app-help-popover">?</button>
+        <div id="app-help-popover" class="app-help-popover" role="tooltip">
+          <strong>Quick start</strong>
+          <span>Choose a FASTQ folder, scan it, proceed to Run, then review results and analyses. Need more? See the <a href="https://github.com/a-nadeem9/simplseq-malaria-amplicon-pipeline-nf#readme" target="_blank" rel="noreferrer">docs</a>.</span>
+        </div>
       </div>
     </header>
     <div class="global-progress" aria-hidden="true">
@@ -31,12 +36,18 @@
     </div>
 
     <main class="app-shell">
+      <nav id="results-subtabs" class="results-subtabs" aria-label="Results sections" hidden>
+        <button class="result-subtab is-active" data-results-tab="results">Output Files</button>
+        <button class="result-subtab" data-results-tab="dinemites">DINEMITES</button>
+        <button class="result-subtab" data-results-tab="dcifer">Dcifer</button>
+      </nav>
+
       <section id="tab-inputs" class="tab-panel is-active">
         <div class="two-column">
           <section class="panel">
             <div class="panel-heading">
               <div>
-                <p class="eyebrow">Inputs</p>
+                <p class="eyebrow">Step 1</p>
                 <h2>FASTQ folder</h2>
               </div>
             </div>
@@ -46,7 +57,7 @@
               <input id="fastq-dir" type="text" value="data" autocomplete="off">
               <button id="browse-button" title="Choose a FASTQ folder">Choose folder</button>
             </div>
-            <p id="folder-message" class="field-help">Select the folder containing paired FASTQ files. Files are read from disk, not uploaded.</p>
+            <p id="folder-message" class="field-help">Select the folder containing paired FASTQ files.</p>
 
             <div id="common-paths" class="quick-paths" aria-label="Common paths" hidden></div>
 
@@ -119,6 +130,13 @@
             </table>
           </div>
         </section>
+
+        <div class="workflow-action">
+          <button id="proceed-run-button" class="primary" type="button" disabled title="Scan a FASTQ folder successfully first.">
+            <span>Proceed to Run</span>
+            <span class="workflow-action__arrow" aria-hidden="true">&rarr;</span>
+          </button>
+        </div>
       </section>
 
       <section id="tab-run" class="tab-panel">
@@ -145,33 +163,29 @@
             <label for="run-name">Run name</label>
             <input id="run-name" type="text" placeholder="Auto-generated if empty" autocomplete="off">
 
-            <div class="option-grid">
-              <label class="check-row">
-                <input id="resume-run" type="checkbox">
-                <span>Resume previous Nextflow work</span>
-              </label>
-              <label class="check-row">
-                <input id="dry-run" type="checkbox">
-                <span>Preview technical command only</span>
-              </label>
-            </div>
+            <input id="resume-run" type="checkbox" hidden>
+            <input id="dry-run" type="checkbox" hidden>
 
-            <details>
+            <details class="runtime-options">
               <summary>Advanced runtime options</summary>
               <div class="advanced-grid">
-                <label for="cpus">CPUs</label>
-                <input id="cpus" type="number" min="0" step="1" value="4">
-                <label for="memory">Memory</label>
-                <input id="memory" type="text" value="12 GB">
+                <div class="advanced-field">
+                  <label for="cpus">CPUs</label>
+                  <input id="cpus" type="number" min="0" step="1" value="4">
+                </div>
+                <div class="advanced-field">
+                  <label for="memory">Memory</label>
+                  <input id="memory" type="text" value="12 GB">
+                </div>
               </div>
             </details>
 
-            <div class="button-row">
+            <div class="button-row run-action-row">
               <button id="check-button">Run runtime check</button>
               <button id="run-button" class="primary">Start run</button>
               <button id="stop-button" class="danger" type="button" hidden>Stop run</button>
             </div>
-            <span id="check-status" class="status-pill compact-pill">Not checked</span>
+            <span id="check-status" class="status-pill compact-pill" hidden></span>
 
             <div id="run-message" class="inline-message"></div>
 
@@ -200,7 +214,9 @@
                 <p class="eyebrow">Progress</p>
                 <h2 id="current-stage">No active run</h2>
               </div>
-              <button id="refresh-status">Refresh</button>
+              <button id="refresh-status" class="icon-button refresh-button" type="button" aria-label="Refresh run status" title="Refresh run status">
+                <span class="refresh-icon" aria-hidden="true"></span>
+              </button>
             </div>
 
             <div class="progress-meta">
@@ -217,10 +233,11 @@
         <section class="panel terminal-panel">
           <div class="terminal-heading">
             <div>
-              <p class="eyebrow">Live terminal</p>
-              <h3>Run output</h3>
+              <p class="eyebrow">Live terminal status</p>
             </div>
-            <button id="load-log">Refresh log</button>
+            <button id="load-log" class="icon-button refresh-button" type="button" aria-label="Refresh terminal log" title="Refresh terminal log">
+              <span class="refresh-icon" aria-hidden="true"></span>
+            </button>
           </div>
           <pre id="technical-log">&gt; Waiting for run.
 &gt; Live progress appears here while SIMPLseq is active.</pre>
@@ -238,7 +255,9 @@
             <div class="results-folder-control">
               <label for="results-outdir">Results folder</label>
               <input id="results-outdir" type="text" value="results" autocomplete="off">
-              <button id="refresh-results" class="primary">Refresh results</button>
+              <button id="refresh-results" class="icon-button refresh-button primary" type="button" aria-label="Refresh results" title="Refresh results">
+                <span class="refresh-icon" aria-hidden="true"></span>
+              </button>
               <button id="download-bundle" type="button" disabled>Download output bundle</button>
             </div>
           </div>
@@ -367,7 +386,6 @@
 
                 <div class="button-row dinemites-action-row">
                   <button id="dinemites-run" class="primary" disabled>Run DINEMITES</button>
-                  <button id="dinemites-refresh" type="button">Refresh results</button>
                 </div>
                 <div id="dinemites-message" class="inline-message"></div>
               </div>
@@ -415,7 +433,7 @@
           </div>
 
           <div class="plot-browser-row">
-            <span id="dm-plot-count">Plots will appear here after results load.</span>
+            <span id="dm-plot-count">Plots will appear here after the analysis completes.</span>
             <div class="plot-browser-controls">
               <button id="dm-prev-plot" class="plot-browser-nav" type="button" aria-label="Previous DINEMITES plot" title="Previous DINEMITES plot" disabled>&lt;</button>
               <select id="dm-plot-selector" aria-label="DINEMITES subject plot" disabled>
@@ -478,30 +496,30 @@
           <section id="dcifer-card" class="panel dcifer-card">
             <div class="panel-heading">
               <div>
-                <p class="eyebrow">dcifer</p>
+                <p class="eyebrow">Dcifer</p>
                 <h2>Relatedness analysis</h2>
               </div>
               <span id="dcifer-status" class="status-pill">Disabled</span>
             </div>
 
             <div class="dcifer-config">
-              <p class="results-copy">Run dcifer on an existing SIMPLseq results folder. dcifer estimates pairwise genetic relatedness between infections; it does not call new infections.</p>
+              <p class="results-copy">Run Dcifer on an existing SIMPLseq results folder. Dcifer estimates pairwise genetic relatedness between infections; it does not call new infections.</p>
 
               <label class="check-row dcifer-toggle">
                 <input id="dcifer-enable" type="checkbox">
-                <span>Enable dcifer analysis</span>
+                <span>Enable Dcifer analysis</span>
               </label>
 
               <div id="dcifer-controls" class="dcifer-controls" hidden>
                 <div class="dcifer-settings-grid">
                   <div class="param-label">
                     <label for="dcifer-min-abundance-pct">Minimum allele abundance (%)</label>
-                    <button type="button" class="param-help" aria-label="About dcifer minimum allele abundance" data-tooltip="Drops alleles below this percentage before dcifer input construction and replicate intersection. Default 0.3% removes low-level noise.">?</button>
+                    <button type="button" class="param-help" aria-label="About Dcifer minimum allele abundance" data-tooltip="Drops alleles below this percentage before Dcifer input construction and replicate intersection. Default 0.3% removes low-level noise.">?</button>
                   </div>
                   <input id="dcifer-min-abundance-pct" type="number" min="0" max="100" step="0.01" value="0.3">
                   <div class="param-label">
                     <label for="dcifer-abundance-denominator">Filter basis</label>
-                    <button type="button" class="param-help" aria-label="About dcifer filter basis" data-tooltip="Per locus compares an allele to reads from the same locus. Whole sample compares to all sample reads. Per locus is usually safer when locus depths differ.">?</button>
+                    <button type="button" class="param-help" aria-label="About Dcifer filter basis" data-tooltip="Per locus compares an allele to reads from the same locus. Whole sample compares to all sample reads. Per locus is usually safer when locus depths differ.">?</button>
                   </div>
                   <select id="dcifer-abundance-denominator" class="dcifer-select">
                     <option value="locus" selected>Per locus</option>
@@ -514,25 +532,24 @@
                   <div class="dcifer-settings-grid">
                     <div class="param-label">
                       <label for="dcifer-coi-lrank">COI locus rank</label>
-                      <button type="button" class="param-help" aria-label="About dcifer COI locus rank" data-tooltip="Which ranked locus is used for the COI estimate. Higher rank can reduce sensitivity to one unusually diverse locus.">?</button>
+                      <button type="button" class="param-help" aria-label="About Dcifer COI locus rank" data-tooltip="Which ranked locus is used for the COI estimate. Higher rank can reduce sensitivity to one unusually diverse locus.">?</button>
                     </div>
                     <input id="dcifer-coi-lrank" type="number" min="1" step="1" value="2">
                     <div class="param-label">
                       <label for="dcifer-ibd-grid-nr">IBD grid points</label>
-                      <button type="button" class="param-help" aria-label="About dcifer IBD grid points" data-tooltip="Resolution of the relatedness grid search. More grid points can be more precise but slower.">?</button>
+                      <button type="button" class="param-help" aria-label="About Dcifer IBD grid points" data-tooltip="Resolution of the relatedness grid search. More grid points can be more precise but slower.">?</button>
                     </div>
                     <input id="dcifer-ibd-grid-nr" type="number" min="1" step="100" value="1000">
                     <div class="param-label">
                       <label for="dcifer-alpha">Alpha</label>
-                      <button type="button" class="param-help" aria-label="About dcifer alpha" data-tooltip="Threshold used to count exploratory raw p-values as <= alpha in the summary. It does not make p-values confirmatory.">?</button>
+                      <button type="button" class="param-help" aria-label="About Dcifer alpha" data-tooltip="Threshold used to count exploratory raw p-values as <= alpha in the summary. It does not make p-values confirmatory.">?</button>
                     </div>
                     <input id="dcifer-alpha" type="number" min="0.001" max="0.999" step="0.001" value="0.05">
                   </div>
                 </details>
 
                 <div class="button-row dcifer-action-row">
-                  <button id="dcifer-run" class="primary" disabled>Run dcifer</button>
-                  <button id="dcifer-refresh" type="button">Refresh results</button>
+                  <button id="dcifer-run" class="primary" disabled>Run Dcifer</button>
                 </div>
                 <div id="dcifer-message" class="inline-message"></div>
               </div>
@@ -543,7 +560,7 @@
             <div class="panel-heading">
               <div>
                 <p class="eyebrow">Interpretation</p>
-                <h2>What dcifer returns</h2>
+                <h2>What Dcifer returns</h2>
               </div>
             </div>
             <div class="dcifer-model-list">
@@ -555,10 +572,6 @@
                 <strong>Relatedness</strong>
                 <span>Pairwise IBD-style estimates across patient/date samples using allele frequencies estimated from the current run.</span>
               </div>
-              <div>
-                <strong>Raw p-values</strong>
-                <span>Raw p-values are exploratory unless allele frequencies come from an adequate background population.</span>
-              </div>
             </div>
           </section>
         </div>
@@ -566,7 +579,7 @@
         <section id="dcifer-results" class="panel dcifer-results-panel" hidden>
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">dcifer</p>
+              <p class="eyebrow">Dcifer</p>
               <h2>Analysis results</h2>
             </div>
             <span id="dcifer-results-status" class="status-pill">Pending</span>
@@ -580,7 +593,7 @@
           </div>
 
           <div class="plot-jump-row">
-            <span id="dcifer-plot-count">Heatmaps will appear here after results load.</span>
+            <span id="dcifer-plot-count">Heatmaps will appear here after the analysis completes.</span>
             <button id="dcifer-view-plots" type="button" disabled>View heatmaps</button>
           </div>
           <div id="dcifer-plot-gallery" class="dcifer-plot-gallery" hidden></div>
@@ -600,7 +613,7 @@
                 </tr>
               </thead>
               <tbody id="dcifer-pairs-table">
-                <tr><td colspan="5" class="empty">Run dcifer to see pairwise relatedness.</td></tr>
+                <tr><td colspan="5" class="empty">Run Dcifer to see pairwise relatedness.</td></tr>
               </tbody>
             </table>
           </div>
