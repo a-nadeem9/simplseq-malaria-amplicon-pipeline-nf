@@ -1540,6 +1540,25 @@ def create_app(root: Path | None = None, workspace_root: Path | None = None) -> 
     def dcifer_state_path(outdir: Path) -> Path:
         return dcifer_outdir(outdir) / "dcifer_state.json"
 
+    def clear_dcifer_outputs(dc_dir: Path) -> None:
+        for filename in DCIFER_FILE_KEYS.values():
+            path = dc_dir / filename
+            try:
+                if path.is_file():
+                    path.unlink()
+            except OSError:
+                pass
+        plots_dir = dc_dir / "dcifer_plots"
+        try:
+            plot_paths = list(plots_dir.glob("*.png")) if plots_dir.is_dir() else []
+        except OSError:
+            plot_paths = []
+        for path in plot_paths:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+
     def dcifer_plot_entries(outdir: Path) -> list[dict[str, Any]]:
         plots_dir = dcifer_plots_dir(outdir)
         if not safe_is_dir(plots_dir):
@@ -1634,6 +1653,7 @@ def create_app(root: Path | None = None, workspace_root: Path | None = None) -> 
     ) -> None:
         dc_dir = dcifer_outdir(outdir)
         dc_dir.mkdir(parents=True, exist_ok=True)
+        clear_dcifer_outputs(dc_dir)
         state_file = dcifer_state_path(outdir)
         cigar_path = outdir / "run_dada2" / "seqtab_cigar.tsv"
         dc_input = dc_dir / "dcifer_input_long.tsv"

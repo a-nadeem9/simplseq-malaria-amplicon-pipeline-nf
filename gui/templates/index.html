@@ -544,7 +544,7 @@
                     <input id="dcifer-ibd-grid-nr" type="number" min="1" step="100" value="1000">
                     <div class="param-label">
                       <label for="dcifer-alpha">Alpha</label>
-                      <button type="button" class="param-help" aria-label="About Dcifer alpha" data-tooltip="Threshold used to count exploratory raw p-values as <= alpha in the summary. It does not make p-values confirmatory.">?</button>
+                      <button type="button" class="param-help" aria-label="About Dcifer alpha" data-tooltip="Threshold used by Dcifer for confidence intervals and for counting pairs with p-value <= alpha. Treat this count as exploratory when allele frequencies come from the same run.">?</button>
                     </div>
                     <input id="dcifer-alpha" type="number" min="0.001" max="0.999" step="0.001" value="0.05">
                   </div>
@@ -590,9 +590,10 @@
           <div class="metrics dcifer-metrics">
             <div><span>Samples</span><strong id="dcifer-samples">--</strong></div>
             <div><span>Pairs</span><strong id="dcifer-pairs">--</strong></div>
-            <div><span>Max relatedness</span><strong id="dcifer-max-relatedness">--</strong></div>
-            <div><span>Raw p <= alpha</span><strong id="dcifer-raw-p-le-alpha">--</strong></div>
+            <div><span>Top pair estimate</span><strong id="dcifer-max-relatedness">--</strong></div>
+            <div><span>Pairs p <= alpha</span><strong id="dcifer-raw-p-le-alpha">--</strong></div>
           </div>
+          <p id="dcifer-summary-note" class="results-copy dcifer-summary-note"></p>
 
           <div class="plot-jump-row">
             <span id="dcifer-plot-count">Heatmaps will appear here after the analysis completes.</span>

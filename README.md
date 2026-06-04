@@ -13,7 +13,7 @@ Your data stays on your computer.
 Install on Linux, WSL, or macOS:
 
 ```bash
-curl -fsSL https://github.com/a-nadeem9/simplseq-malaria-amplicon-pipeline-nf/releases/download/v2.2.4/install-simplseq.sh | bash
+curl -fsSL https://github.com/a-nadeem9/simplseq-malaria-amplicon-pipeline-nf/releases/download/v2.2.5/install-simplseq.sh | bash
 simplseq run
 ```
 

@@ -2431,6 +2431,10 @@ async function loadDciferResults() {
       text($("#dcifer-pairs"), formatNumber(summary.pairs, 0));
       text($("#dcifer-max-relatedness"), formatNumber(summary.max_relatedness, 3));
       text($("#dcifer-raw-p-le-alpha"), formatNumber(summary.raw_p_le_alpha, 0));
+      text(
+        $("#dcifer-summary-note"),
+        summary.caveat || "Pairs p <= alpha counts Dcifer p-values for H0: relatedness = 0; interpret as exploratory unless allele frequencies come from an adequate background population."
+      );
       renderDciferPlots(payload.plots || [], payload.matrices || {});
       renderDciferPairs(payload.pairs || []);
 
@@ -2451,6 +2455,7 @@ async function loadDciferResults() {
       startDciferPolling();
     } else if (status === "failed") {
       if (resultsPanel) resultsPanel.hidden = true;
+      text($("#dcifer-summary-note"), "");
       renderDciferPairs([]);
       renderDciferPlots([]);
       setPill($("#dcifer-status"), "Failed", "bad");

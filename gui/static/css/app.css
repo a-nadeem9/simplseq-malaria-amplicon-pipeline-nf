@@ -2703,6 +2703,11 @@ td {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.dcifer-summary-note {
+  margin: 8px 0 0;
+  max-width: 860px;
+}
+
 .dcifer-plot-gallery {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -2805,9 +2810,9 @@ td {
 
 .dcifer-heatmap-key-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 6px 12px;
-  max-height: 160px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px 14px;
+  max-height: 220px;
   overflow: auto;
   padding-top: 8px;
 }
@@ -2828,9 +2833,8 @@ td {
 }
 
 .dcifer-heatmap-key-item span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .dcifer-heatmap-cell {
